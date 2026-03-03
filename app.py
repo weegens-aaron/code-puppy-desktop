@@ -22,7 +22,6 @@ from windows.dialogs.agent_dialog import AgentDialog
 from windows.dialogs.skills_dialog import SkillsDialog
 from windows.dialogs.mcp_dialog import MCPDialog
 from windows.dialogs.model_dialog import ModelDialog
-from windows.dialogs.session_dialog import SessionDialog
 from styles import (
     COLORS, get_main_window_style, get_send_button_style,
     get_cancel_button_style, get_attach_button_style, input_style,
@@ -136,6 +135,7 @@ class CodePuppyApp(QMainWindow):
         self.sidebar.file_selected.connect(self._on_file_selected)
         self.sidebar.path_referenced.connect(self._on_path_referenced)
         # Connect panel signals
+        self.sidebar.session_selected.connect(self._on_session_selected)
         self.sidebar.agent_selected.connect(self._on_agent_selected)
         self.sidebar.model_changed.connect(self._on_model_changed)
         self.sidebar.skills_changed.connect(self._on_skills_changed)
@@ -229,15 +229,6 @@ class CodePuppyApp(QMainWindow):
         new_action.setStatusTip("Start a new conversation")
         new_action.triggered.connect(self._on_new_chat)
         toolbar.addAction(new_action)
-
-        # Resume session action
-        resume_action = QAction("Resume", self)
-        resume_action.setShortcut("Ctrl+R")
-        resume_action.setStatusTip("Resume a previous session")
-        resume_action.triggered.connect(self._on_resume)
-        toolbar.addAction(resume_action)
-
-        toolbar.addSeparator()
 
         # Change workspace action
         folder_action = QAction("Change Workspace", self)
@@ -507,21 +498,15 @@ class CodePuppyApp(QMainWindow):
             self.statusBar().showMessage("Cannot start new chat while agent is running")
             return
 
-        # Clear agent conversation history (same as CLI 'clear' command)
-        self.agent_bridge.clear_history()
-        # Clear UI message list (clears both model and widgets)
-        self.message_list.clear()
-        self._clear_attachments()
-        # Clear tracked message indices
-        self._current_thinking_index = None
-        self._current_tool_indices.clear()
-        self._assistant_message_index = None
-        self._add_welcome_message()
-        self._update_status_bar_info()
+        self._start_new_session()
         self.statusBar().showMessage("New conversation started")
 
     def _on_open_folder(self):
         """Handle change workspace action."""
+        if self.agent_bridge.is_busy():
+            self.statusBar().showMessage("Cannot change workspace while agent is running")
+            return
+
         folder = QFileDialog.getExistingDirectory(
             self,
             "Change Workspace",
@@ -535,7 +520,27 @@ class CodePuppyApp(QMainWindow):
             self.sidebar.set_root_path(folder)
             # Update window title
             self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(folder)}")
-            self.statusBar().showMessage(f"Workspace: {folder}")
+            # Start a new session - workspace change means new context
+            self._start_new_session()
+            self.statusBar().showMessage(f"New session in: {folder}")
+
+    def _start_new_session(self):
+        """Start a new session (clears history and UI).
+
+        Called when workspace changes or user explicitly starts new chat.
+        """
+        # Clear agent conversation history
+        self.agent_bridge.clear_history()
+        # Clear UI message list
+        self.message_list.clear()
+        self._clear_attachments()
+        # Clear tracked message indices
+        self._current_thinking_index = None
+        self._current_tool_indices.clear()
+        self._assistant_message_index = None
+        # Show welcome message for new session
+        self._add_welcome_message()
+        self._update_status_bar_info()
 
     def _on_settings(self):
         """Handle settings action."""
@@ -604,51 +609,53 @@ class CodePuppyApp(QMainWindow):
         self._update_status_bar_info()
         self.statusBar().showMessage(f"Model changed to: {model_name}")
 
-    def _on_resume(self):
-        """Handle resume action - show session picker dialog."""
+    def _on_session_selected(self, session_name: str):
+        """Handle session selection from the sessions panel.
+
+        Args:
+            session_name: The session name to load, or "__NEW__" for a new session
+        """
         if self.agent_bridge.is_busy():
-            self.statusBar().showMessage("Cannot resume session while agent is running")
+            self.statusBar().showMessage("Cannot change session while agent is running")
             return
 
-        dialog = SessionDialog(self)
-        if dialog.exec():
-            session_name = dialog.get_selected_session()
-            history = dialog.get_loaded_history()
+        if session_name == "__NEW__":
+            # User requested a new session
+            self._on_new_chat()
+            self.statusBar().showMessage("New session started")
+            return
 
-            if session_name == "__NEW__":
-                # User requested a new session
-                self._on_new_chat()
-                self.statusBar().showMessage("New session started")
-                return
+        # Get the loaded history from the sessions panel
+        history = self.sidebar.sessions_panel.get_loaded_history()
 
-            if history:
-                # Clear current state
-                self.message_list.clear()
-                self._current_thinking_index = None
-                self._current_tool_indices.clear()
-                self._assistant_message_index = None
+        if history:
+            # Clear current state
+            self.message_list.clear()
+            self._current_thinking_index = None
+            self._current_tool_indices.clear()
+            self._assistant_message_index = None
 
-                # Load history into agent
-                agent = get_current_agent()
-                if agent:
-                    agent.set_message_history(history)
+            # Load history into agent
+            agent = get_current_agent()
+            if agent:
+                agent.set_message_history(history)
 
-                    # Set the autosave session ID to continue this session
-                    try:
-                        from code_puppy.config import set_current_autosave_from_session_name
-                        set_current_autosave_from_session_name(session_name)
-                    except Exception:
-                        pass
+                # Set the autosave session ID to continue this session
+                try:
+                    from code_puppy.config import set_current_autosave_from_session_name
+                    set_current_autosave_from_session_name(session_name)
+                except Exception:
+                    pass
 
-                # Display recent messages in UI
-                self._display_resumed_history(history)
+            # Display recent messages in UI
+            self._display_resumed_history(history)
 
-                # Update context display
-                self._update_context_display()
+            # Update context display
+            self._update_context_display()
 
-                self.statusBar().showMessage(
-                    f"Session resumed: {len(history)} messages"
-                )
+            self.statusBar().showMessage(
+                f"Session resumed: {len(history)} messages"
+            )
 
     def _display_resumed_history(self, history: list, max_messages: int = 20):
         """Display recent messages from loaded history in the UI.
@@ -770,6 +777,9 @@ class CodePuppyApp(QMainWindow):
     def _on_thinking_started(self):
         """Handle thinking started event."""
         self.statusBar().showMessage("Thinking...")
+        # Reset assistant message index so any prior text is finalized
+        # and any text after thinking will get a new bubble
+        self._assistant_message_index = None
         # Create thinking message
         self._current_thinking_index = self.message_list.message_model.add_message(
             Message(role=MessageRole.THINKING, content="")
@@ -786,11 +796,17 @@ class CodePuppyApp(QMainWindow):
         """Handle thinking complete event."""
         self.statusBar().showMessage("Responding...")
         self._current_thinking_index = None
+        # Reset assistant message index so any text after thinking gets a new bubble
+        self._assistant_message_index = None
 
     def _on_tool_call_started(self, tool_name: str, tool_args: str):
         """Handle tool call started event."""
         # Start activity indicator
         self._start_activity_indicator(tool_name)
+
+        # Reset assistant message index so any prior text is finalized
+        # and any text after this tool will get a new bubble
+        self._assistant_message_index = None
 
         # Create tool call message
         index = self.message_list.message_model.add_message(
@@ -848,6 +864,8 @@ class CodePuppyApp(QMainWindow):
                 }
             )
         )
+        # Reset assistant message index so any text after tool output gets a new bubble
+        self._assistant_message_index = None
 
     def _on_response_complete(self, response: str):
         """Handle response completion."""
