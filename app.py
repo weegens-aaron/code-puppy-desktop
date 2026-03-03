@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, QTimer, QElapsedTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
 from widgets.message_list import MessageListView
-from widgets.file_tree import FileTree
+from widgets.sidebar_tabs import SidebarTabs
 from models.data_types import Message, MessageRole, ToolOutputType
 from services.agent_bridge import AgentBridge
 from windows.dialogs.settings_dialog import SettingsDialog
@@ -127,14 +127,20 @@ class CodePuppyApp(QMainWindow):
         # Main splitter for sidebar and chat
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # File tree sidebar
-        self.file_tree = FileTree(os.getcwd())
-        self.file_tree.setMinimumWidth(200)
-        self.file_tree.setMaximumWidth(400)
-        self.file_tree.file_attached.connect(self._on_file_attached)
-        self.file_tree.file_selected.connect(self._on_file_selected)
-        self.file_tree.path_referenced.connect(self._on_path_referenced)
-        splitter.addWidget(self.file_tree)
+        # Tabbed sidebar (Files, Agents, Models, Skills, MCP)
+        self.sidebar = SidebarTabs(os.getcwd())
+        self.sidebar.setMinimumWidth(200)
+        self.sidebar.setMaximumWidth(450)
+        # Connect file tree signals
+        self.sidebar.file_attached.connect(self._on_file_attached)
+        self.sidebar.file_selected.connect(self._on_file_selected)
+        self.sidebar.path_referenced.connect(self._on_path_referenced)
+        # Connect panel signals
+        self.sidebar.agent_selected.connect(self._on_agent_selected)
+        self.sidebar.model_changed.connect(self._on_model_changed)
+        self.sidebar.skills_changed.connect(self._on_skills_changed)
+        self.sidebar.servers_changed.connect(self._on_servers_changed)
+        splitter.addWidget(self.sidebar)
 
         # Chat area
         chat_widget = QWidget()
@@ -242,36 +248,6 @@ class CodePuppyApp(QMainWindow):
 
         toolbar.addSeparator()
 
-        # Agents action
-        agents_action = QAction("Agents", self)
-        agents_action.setShortcut("Ctrl+Shift+A")
-        agents_action.setStatusTip("Select agent")
-        agents_action.triggered.connect(self._on_agents)
-        toolbar.addAction(agents_action)
-
-        # Skills action
-        skills_action = QAction("Skills", self)
-        skills_action.setShortcut("Ctrl+Shift+S")
-        skills_action.setStatusTip("Manage skills")
-        skills_action.triggered.connect(self._on_skills)
-        toolbar.addAction(skills_action)
-
-        # MCP action
-        mcp_action = QAction("MCP", self)
-        mcp_action.setShortcut("Ctrl+Shift+M")
-        mcp_action.setStatusTip("Manage MCP servers")
-        mcp_action.triggered.connect(self._on_mcp)
-        toolbar.addAction(mcp_action)
-
-        # Model action
-        model_action = QAction("Model", self)
-        model_action.setShortcut("Ctrl+M")
-        model_action.setStatusTip("Select AI model")
-        model_action.triggered.connect(self._on_model)
-        toolbar.addAction(model_action)
-
-        toolbar.addSeparator()
-
         # Settings action
         settings_action = QAction("Settings", self)
         settings_action.setShortcut("Ctrl+,")
@@ -337,6 +313,19 @@ class CodePuppyApp(QMainWindow):
         # Escape to cancel
         cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
         cancel_shortcut.activated.connect(self._on_cancel)
+
+        # Sidebar tab shortcuts
+        agents_shortcut = QShortcut(QKeySequence("Ctrl+Shift+A"), self)
+        agents_shortcut.activated.connect(self._on_agents)
+
+        models_shortcut = QShortcut(QKeySequence("Ctrl+M"), self)
+        models_shortcut.activated.connect(self._on_model)
+
+        skills_shortcut = QShortcut(QKeySequence("Ctrl+Shift+S"), self)
+        skills_shortcut.activated.connect(self._on_skills)
+
+        mcp_shortcut = QShortcut(QKeySequence("Ctrl+Shift+M"), self)
+        mcp_shortcut.activated.connect(self._on_mcp)
 
     def _add_welcome_message(self):
         """Add welcome message on startup."""
@@ -468,7 +457,7 @@ class CodePuppyApp(QMainWindow):
         files, _ = QFileDialog.getOpenFileNames(
             self,
             "Select Files to Attach",
-            self.file_tree.get_root_path(),
+            self.sidebar.get_root_path(),
             "All Files (*.*)"
         )
         for filepath in files:
@@ -536,14 +525,14 @@ class CodePuppyApp(QMainWindow):
         folder = QFileDialog.getExistingDirectory(
             self,
             "Change Workspace",
-            self.file_tree.get_root_path(),
+            self.sidebar.get_root_path(),
             QFileDialog.Option.ShowDirsOnly
         )
         if folder:
             # Change the actual working directory
             os.chdir(folder)
-            # Update the file tree
-            self.file_tree.set_root_path(folder)
+            # Update the sidebar file tree
+            self.sidebar.set_root_path(folder)
             # Update window title
             self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(folder)}")
             self.statusBar().showMessage(f"Workspace: {folder}")
@@ -567,46 +556,53 @@ class CodePuppyApp(QMainWindow):
         dialog.exec()
 
     def _on_agents(self):
-        """Handle agents action - show agent selection dialog."""
+        """Handle agents action - switch to agents tab in sidebar."""
+        self.sidebar.switch_to_tab('agents')
+
+    def _on_agent_selected(self, agent_name: str):
+        """Handle agent selection from sidebar panel."""
         if self.agent_bridge.is_busy():
             self.statusBar().showMessage("Cannot change agent while processing")
             return
 
-        dialog = AgentDialog(self)
-        if dialog.exec():
-            selected = dialog.get_selected_agent()
-            if selected:
-                # Clear the cached agent in the worker so it picks up the new one
-                self.agent_bridge.clear_history()
-                # Clear UI message list (agent change means new context)
-                self.message_list.clear()
-                self._clear_attachments()
-                self._current_thinking_index = None
-                self._current_tool_indices.clear()
-                self._assistant_message_index = None
-                self._add_welcome_message()
-                # Update displays
-                self._update_status_bar_info()
-                self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(os.getcwd())}")
-                self.statusBar().showMessage(f"Switched to agent: {selected}")
+        # Clear the cached agent in the worker so it picks up the new one
+        self.agent_bridge.clear_history()
+        # Clear UI message list (agent change means new context)
+        self.message_list.clear()
+        self._clear_attachments()
+        self._current_thinking_index = None
+        self._current_tool_indices.clear()
+        self._assistant_message_index = None
+        self._add_welcome_message()
+        # Update displays
+        self._update_status_bar_info()
+        self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(os.getcwd())}")
+        self.statusBar().showMessage(f"Switched to agent: {agent_name}")
 
     def _on_skills(self):
-        """Handle skills action - show skills management dialog."""
-        dialog = SkillsDialog(self)
-        dialog.exec()
+        """Handle skills action - switch to skills tab in sidebar."""
+        self.sidebar.switch_to_tab('skills')
+
+    def _on_skills_changed(self):
+        """Handle skills change from sidebar panel."""
+        self.statusBar().showMessage("Skills updated")
 
     def _on_mcp(self):
-        """Handle MCP action - show MCP server management dialog."""
-        dialog = MCPDialog(self)
-        dialog.exec()
+        """Handle MCP action - switch to MCP tab in sidebar."""
+        self.sidebar.switch_to_tab('mcp')
+
+    def _on_servers_changed(self):
+        """Handle MCP servers change from sidebar panel."""
+        self.statusBar().showMessage("MCP servers updated")
 
     def _on_model(self):
-        """Handle model action - show model selection dialog."""
-        dialog = ModelDialog(self)
-        if dialog.exec():
-            # Update status bar to show new model
-            self._update_status_bar_info()
-            self.statusBar().showMessage(f"Model changed to: {dialog.get_selected_model()}")
+        """Handle model action - switch to models tab in sidebar."""
+        self.sidebar.switch_to_tab('models')
+
+    def _on_model_changed(self, model_name: str):
+        """Handle model change from sidebar panel."""
+        self._update_status_bar_info()
+        self.statusBar().showMessage(f"Model changed to: {model_name}")
 
     def _on_resume(self):
         """Handle resume action - show session picker dialog."""

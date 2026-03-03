@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTreeView,
-    QFileSystemModel, QPushButton, QLabel, QLineEdit,
-    QMenu, QFileDialog,
+    QWidget, QVBoxLayout, QTreeView,
+    QFileSystemModel, QLineEdit, QMenu,
 )
 from PySide6.QtCore import Qt, Signal, QDir, QModelIndex
 from PySide6.QtGui import QAction
@@ -40,55 +39,6 @@ class FileTree(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
-
-        # Header
-        header = QHBoxLayout()
-        header.setSpacing(4)
-
-        self._title = QLabel("Files")
-        self._title.setStyleSheet("font-weight: bold; color: #e0e0e0; padding: 4px;")
-        header.addWidget(self._title)
-
-        header.addStretch()
-
-        # Folder button
-        self._folder_btn = QPushButton("\U0001f4c1")  # Folder icon
-        self._folder_btn.setFixedSize(28, 28)
-        self._folder_btn.setToolTip("Open folder")
-        self._folder_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-            }
-        """)
-        self._folder_btn.clicked.connect(self._on_open_folder)
-        header.addWidget(self._folder_btn)
-
-        # Refresh button
-        self._refresh_btn = QPushButton("\u21bb")  # Refresh icon
-        self._refresh_btn.setFixedSize(28, 28)
-        self._refresh_btn.setToolTip("Refresh")
-        self._refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-                color: #e0e0e0;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-            }
-        """)
-        self._refresh_btn.clicked.connect(self._on_refresh)
-        header.addWidget(self._refresh_btn)
-
-        layout.addLayout(header)
 
         # Filter input
         self._filter_input = QLineEdit()
@@ -240,19 +190,8 @@ class FileTree(QWidget):
         if os.path.isfile(path):
             self.file_selected.emit(path)
 
-    def _on_open_folder(self):
-        """Handle open folder button click."""
-        folder = QFileDialog.getExistingDirectory(
-            self,
-            "Select Folder",
-            self._root_path,
-            QFileDialog.Option.ShowDirsOnly
-        )
-        if folder:
-            self.set_root_path(folder)
-
-    def _on_refresh(self):
-        """Handle refresh button click."""
+    def refresh(self):
+        """Refresh the file tree."""
         self._model.setRootPath("")
         self._model.setRootPath(self._root_path)
         self._tree.setRootIndex(self._model.index(self._root_path))
