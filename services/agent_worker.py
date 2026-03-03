@@ -2,12 +2,32 @@
 
 import asyncio
 import logging
+import signal
 import threading
+from contextlib import contextmanager
 from typing import Any, Optional
+from unittest.mock import patch
 
 from PySide6.QtCore import QObject, Signal
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _disable_signal_handlers():
+    """Disable signal.signal() when running in a non-main thread.
+
+    The agent's run_with_mcp() tries to set up SIGINT handlers, but this
+    only works in the main thread. When running in a QThread, we need to
+    patch signal.signal to be a no-op.
+    """
+    if threading.current_thread() is threading.main_thread():
+        yield
+    else:
+        def noop_signal(signum, handler):
+            return signal.SIG_DFL
+        with patch.object(signal, 'signal', noop_signal):
+            yield
 
 
 class AgentWorker(QObject):
@@ -207,7 +227,9 @@ class AgentWorker(QObject):
                     return
 
                 try:
-                    result = await agent.run_with_mcp(prompt, attachments=binary_attachments)
+                    # Disable signal handlers since we're not in main thread
+                    with _disable_signal_handlers():
+                        result = await agent.run_with_mcp(prompt, attachments=binary_attachments)
 
                     if self._cancelled:
                         return
@@ -361,7 +383,7 @@ class AgentWorker(QObject):
             return
 
         try:
-            from desktop.utils.tool_output_extractor import ToolOutputExtractor
+            from ..utils.tool_output_extractor import ToolOutputExtractor
 
             output_type, metadata = ToolOutputExtractor.extract(tool_name, tool_args, result)
             if output_type:

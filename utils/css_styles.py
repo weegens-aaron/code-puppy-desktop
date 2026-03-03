@@ -4,7 +4,7 @@ Separates CSS concerns from rendering logic (SoC).
 Uses composable base styles to avoid repetition (DRY).
 """
 
-from desktop.styles import COLORS
+from ..styles import COLORS
 
 
 # =============================================================================

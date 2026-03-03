@@ -11,7 +11,7 @@ def _custom_help():
 def _handle_custom_command(command: str, name: str):
     """Handle the /desktop command."""
     if name == "desktop":
-        from desktop.main import launch_desktop
+        from .main import launch_desktop
         launch_desktop()
         return True
     return None

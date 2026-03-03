@@ -12,18 +12,18 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QElapsedTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
-from desktop.widgets.message_list import MessageListView
-from desktop.widgets.file_tree import FileTree
-from desktop.models.data_types import Message, MessageRole, ToolOutputType
-from desktop.services.agent_bridge import AgentBridge
-from desktop.windows.dialogs.settings_dialog import SettingsDialog
-from desktop.windows.dialogs.help_dialog import HelpDialog
-from desktop.windows.dialogs.agent_dialog import AgentDialog
-from desktop.windows.dialogs.skills_dialog import SkillsDialog
-from desktop.windows.dialogs.mcp_dialog import MCPDialog
-from desktop.windows.dialogs.model_dialog import ModelDialog
-from desktop.windows.dialogs.session_dialog import SessionDialog
-from desktop.styles import (
+from .widgets.message_list import MessageListView
+from .widgets.file_tree import FileTree
+from .models.data_types import Message, MessageRole, ToolOutputType
+from .services.agent_bridge import AgentBridge
+from .windows.dialogs.settings_dialog import SettingsDialog
+from .windows.dialogs.help_dialog import HelpDialog
+from .windows.dialogs.agent_dialog import AgentDialog
+from .windows.dialogs.skills_dialog import SkillsDialog
+from .windows.dialogs.mcp_dialog import MCPDialog
+from .windows.dialogs.model_dialog import ModelDialog
+from .windows.dialogs.session_dialog import SessionDialog
+from .styles import (
     COLORS, get_main_window_style, get_send_button_style,
     get_cancel_button_style, get_attach_button_style, input_style,
     get_theme_manager, ColorScheme,

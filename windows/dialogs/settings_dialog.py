@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal
 
-from desktop.styles import (
+from ...styles import (
     get_theme_manager, ThemeManager, THEMES, ColorScheme
 )
 

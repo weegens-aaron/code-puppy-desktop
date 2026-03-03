@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QPixmap
 
-from desktop.models.data_types import Message, MessageRole, ToolOutputType
-from desktop.styles import (
+from ..models.data_types import Message, MessageRole, ToolOutputType
+from ..styles import (
     COLORS, get_role_style, CONTENT_BROWSER_STYLE, COPY_BUTTON_STYLE
 )
-from desktop.utils.content_renderer import ContentRenderer
+from ..utils.content_renderer import ContentRenderer
 from code_puppy.config import get_owner_name, get_puppy_name
 
 
