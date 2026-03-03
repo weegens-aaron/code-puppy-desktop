@@ -1,6 +1,6 @@
 """Base class for sidebar panels with common UI structure and styling."""
 
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -10,6 +10,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from styles import COLORS, button_style
+
+
+# Combined metaclass to resolve conflict between Qt's metaclass and ABCMeta
+class QWidgetABCMeta(type(QWidget), ABCMeta):
+    """Metaclass combining Qt's metaclass with ABCMeta for abstract widgets."""
+    pass
 
 
 def get_panel_stylesheet(include_checkbox: bool = False) -> str:
@@ -103,7 +109,7 @@ def get_refresh_button_stylesheet() -> str:
     """
 
 
-class BaseSidebarPanel(QWidget, ABC):
+class BaseSidebarPanel(QWidget, metaclass=QWidgetABCMeta):
     """Abstract base class for sidebar panels.
 
     Provides common UI structure:
