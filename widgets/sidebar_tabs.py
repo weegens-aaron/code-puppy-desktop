@@ -12,7 +12,7 @@ from widgets.panels.models_panel import ModelsPanel
 from widgets.panels.skills_panel import SkillsPanel
 from widgets.panels.mcp_panel import MCPPanel
 from widgets.panels.sessions_panel import SessionsPanel
-from styles import COLORS
+from styles import get_tab_widget_style
 
 
 class SidebarTabs(QWidget):
@@ -57,29 +57,7 @@ class SidebarTabs(QWidget):
         self._tabs = QTabWidget()
         self._tabs.setTabPosition(QTabWidget.TabPosition.North)
         self._tabs.setDocumentMode(True)
-        self._tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                border: none;
-                background-color: {COLORS.bg_primary};
-            }}
-            QTabBar::tab {{
-                background-color: {COLORS.bg_secondary};
-                color: {COLORS.text_secondary};
-                padding: 6px 12px;
-                margin: 0;
-                border: none;
-                border-bottom: 2px solid transparent;
-            }}
-            QTabBar::tab:selected {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border-bottom: 2px solid {COLORS.accent_primary};
-            }}
-            QTabBar::tab:hover:!selected {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_primary};
-            }}
-        """)
+        self._tabs.setStyleSheet(get_tab_widget_style())
 
         # Create panels
         self._file_tree = FileTree(self._root_path)

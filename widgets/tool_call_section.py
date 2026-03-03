@@ -7,6 +7,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+from styles import (
+    COLORS,
+    get_tool_call_section_style,
+    get_collapsible_toggle_style,
+    get_section_icon_style,
+    get_section_title_style,
+    get_tool_args_text_style,
+)
+
 
 class ToolCallSection(QFrame):
     """Section displaying a tool call with name, status, and arguments.
@@ -25,13 +34,7 @@ class ToolCallSection(QFrame):
         self._is_expanded = False
 
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            ToolCallSection {
-                background-color: #1e3a5f;
-                border: 1px solid #2d5a8f;
-                border-radius: 8px;
-            }
-        """)
+        self.setStyleSheet(get_tool_call_section_style())
 
         self._setup_ui()
 
@@ -46,12 +49,12 @@ class ToolCallSection(QFrame):
 
         # Status icon
         self._status_icon = QLabel("\u23f3")  # Hourglass
-        self._status_icon.setStyleSheet("color: #4fc3f7; font-size: 14px;")
+        self._status_icon.setStyleSheet(get_section_icon_style(COLORS.accent_info))
         header.addWidget(self._status_icon)
 
         # Tool name
         self._name_label = QLabel(f"Tool: {self._tool_name}")
-        self._name_label.setStyleSheet("color: #4fc3f7; font-weight: bold; font-size: 13px;")
+        self._name_label.setStyleSheet(get_section_title_style(COLORS.accent_info))
         header.addWidget(self._name_label)
 
         header.addStretch()
@@ -59,18 +62,7 @@ class ToolCallSection(QFrame):
         # Expand button (starts expanded)
         self._expand_btn = QPushButton("\u25bc")  # Down arrow (expanded)
         self._expand_btn.setFixedSize(24, 24)
-        self._expand_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                color: #4fc3f7;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: rgba(79, 195, 247, 0.2);
-                border-radius: 4px;
-            }
-        """)
+        self._expand_btn.setStyleSheet(get_collapsible_toggle_style(COLORS.accent_info))
         self._expand_btn.clicked.connect(self._toggle_expand)
         header.addWidget(self._expand_btn)
 
@@ -80,17 +72,7 @@ class ToolCallSection(QFrame):
         self._args_text = QPlainTextEdit()
         self._args_text.setReadOnly(True)
         self._args_text.setPlainText(self._tool_args or "(no arguments)")
-        self._args_text.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: rgba(0, 0, 0, 0.2);
-                border: none;
-                color: #b0bec5;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 12px;
-                border-radius: 4px;
-                padding: 4px;
-            }
-        """)
+        self._args_text.setStyleSheet(get_tool_args_text_style())
         self._args_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self._args_text.setMinimumHeight(40)
         # Auto-resize to fit content
@@ -147,10 +129,10 @@ class ToolCallSection(QFrame):
         self._is_complete = complete
         if complete:
             self._status_icon.setText("\u2713")  # Checkmark
-            self._status_icon.setStyleSheet("color: #4caf50; font-size: 14px;")
+            self._status_icon.setStyleSheet(get_section_icon_style(COLORS.accent_success))
         else:
             self._status_icon.setText("\u23f3")  # Hourglass
-            self._status_icon.setStyleSheet("color: #4fc3f7; font-size: 14px;")
+            self._status_icon.setStyleSheet(get_section_icon_style(COLORS.accent_info))
 
     def is_complete(self) -> bool:
         """Check if the tool call is complete."""

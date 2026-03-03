@@ -650,6 +650,370 @@ COPY_BUTTON_STYLE = """
     }
 """
 
+# =============================================================================
+# Thinking & Tool Call Section Styles
+# =============================================================================
+
+def get_thinking_section_style() -> str:
+    """Get thinking section frame style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        ThinkingSection {{
+            background-color: {colors.role_thinking_bg};
+            border: 1px solid {colors.role_thinking_text}40;
+            border-radius: 8px;
+        }}
+    """
+
+
+def get_tool_call_section_style() -> str:
+    """Get tool call section frame style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        ToolCallSection {{
+            background-color: {colors.role_tool_bg};
+            border: 1px solid {colors.role_tool_text}40;
+            border-radius: 8px;
+        }}
+    """
+
+
+def get_collapsible_toggle_style(accent_color: str) -> str:
+    """Get collapsible toggle button style."""
+    return f"""
+        QPushButton {{
+            background-color: transparent;
+            border: none;
+            color: {accent_color};
+            font-size: 12px;
+        }}
+        QPushButton:hover {{
+            background-color: {accent_color}33;
+            border-radius: 4px;
+        }}
+    """
+
+
+def get_section_icon_style(color: str) -> str:
+    """Get section icon label style."""
+    return f"color: {color}; font-size: 14px;"
+
+
+def get_section_title_style(color: str) -> str:
+    """Get section title label style."""
+    return f"color: {color}; font-weight: bold; font-size: 13px;"
+
+
+def get_thinking_text_style() -> str:
+    """Get thinking section text edit style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QPlainTextEdit {{
+            background-color: transparent;
+            border: none;
+            color: {colors.text_secondary};
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+        }}
+    """
+
+
+def get_tool_args_text_style() -> str:
+    """Get tool arguments text edit style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QPlainTextEdit {{
+            background-color: rgba(0, 0, 0, 0.2);
+            border: none;
+            color: {colors.text_secondary};
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            border-radius: 4px;
+            padding: 4px;
+        }}
+    """
+
+
+# =============================================================================
+# File Tree Styles
+# =============================================================================
+
+def get_file_tree_filter_style() -> str:
+    """Get file tree filter input style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QLineEdit {{
+            background-color: {colors.bg_tertiary};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 0 4px;
+        }}
+        QLineEdit:focus {{
+            border-color: {colors.border_focus};
+        }}
+    """
+
+
+def get_file_tree_view_style() -> str:
+    """Get file tree view style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QTreeView {{
+            background-color: {colors.bg_primary};
+            color: {colors.text_primary};
+            border: none;
+        }}
+        QTreeView::item {{
+            padding: 4px;
+        }}
+        QTreeView::item:hover {{
+            background-color: {colors.bg_secondary};
+        }}
+        QTreeView::item:selected {{
+            background-color: {colors.accent_primary};
+        }}
+        QTreeView::branch:has-children:!has-siblings:closed,
+        QTreeView::branch:closed:has-children:has-siblings {{
+            border-image: none;
+            image: url(none);
+        }}
+        QTreeView::branch:open:has-children:!has-siblings,
+        QTreeView::branch:open:has-children:has-siblings  {{
+            border-image: none;
+            image: url(none);
+        }}
+    """
+
+
+def get_context_menu_style() -> str:
+    """Get context menu style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QMenu {{
+            background-color: {colors.bg_secondary};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+        }}
+        QMenu::item {{
+            padding: 6px 20px;
+        }}
+        QMenu::item:selected {{
+            background-color: {colors.accent_primary};
+        }}
+    """
+
+
+# =============================================================================
+# Tab Widget Styles
+# =============================================================================
+
+def get_tab_widget_style() -> str:
+    """Get tab widget style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QTabWidget::pane {{
+            border: none;
+            background-color: {colors.bg_primary};
+        }}
+        QTabBar::tab {{
+            background-color: {colors.bg_secondary};
+            color: {colors.text_secondary};
+            padding: 6px 12px;
+            margin: 0;
+            border: none;
+            border-bottom: 2px solid transparent;
+        }}
+        QTabBar::tab:selected {{
+            background-color: {colors.bg_primary};
+            color: {colors.text_primary};
+            border-bottom: 2px solid {colors.accent_primary};
+        }}
+        QTabBar::tab:hover:!selected {{
+            background-color: {colors.bg_tertiary};
+            color: {colors.text_primary};
+        }}
+    """
+
+
+# =============================================================================
+# Attachment Chip Styles
+# =============================================================================
+
+def get_attachment_chip_style() -> str:
+    """Get attachment chip container style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QFrame {{
+            background-color: {colors.bg_tertiary};
+            border-radius: 4px;
+            padding: 2px 4px;
+        }}
+    """
+
+
+def get_attachment_label_style() -> str:
+    """Get attachment label style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QLabel {{
+            color: {colors.text_primary};
+            font-size: 12px;
+            padding: 0 4px;
+        }}
+    """
+
+
+def get_attachment_remove_style() -> str:
+    """Get attachment remove button style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QPushButton {{
+            color: {colors.text_muted};
+            background: transparent;
+            border: none;
+            font-size: 14px;
+            padding: 0 4px;
+        }}
+        QPushButton:hover {{
+            color: {colors.accent_error};
+        }}
+    """
+
+
+# =============================================================================
+# Status Bar Label Styles
+# =============================================================================
+
+def get_status_label_style(color: str) -> str:
+    """Get status bar label style with the given color."""
+    return f"color: {color}; padding: 0 8px;"
+
+
+def get_status_activity_style() -> str:
+    """Get status bar activity label style for current theme."""
+    colors = _theme_manager.current
+    return f"color: {colors.accent_info}; padding: 0 8px; font-weight: bold;"
+
+
+def get_status_separator_style() -> str:
+    """Get status bar separator style for current theme."""
+    colors = _theme_manager.current
+    return f"color: {colors.border_subtle};"
+
+
+# =============================================================================
+# Dialog Styles
+# =============================================================================
+
+def get_dialog_style() -> str:
+    """Get standard dialog style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QDialog {{
+            background-color: {colors.bg_primary};
+        }}
+        QLabel {{
+            color: {colors.text_primary};
+        }}
+        QGroupBox {{
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+            margin-top: 8px;
+            padding-top: 8px;
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 8px;
+            padding: 0 4px;
+        }}
+        QLineEdit {{
+            background-color: {colors.bg_input};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+            padding: 6px;
+        }}
+        QLineEdit:focus {{
+            border-color: {colors.border_focus};
+        }}
+        QComboBox {{
+            background-color: {colors.bg_input};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+            padding: 6px;
+        }}
+        QComboBox::drop-down {{
+            border: none;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: {colors.bg_secondary};
+            color: {colors.text_primary};
+            selection-background-color: {colors.accent_primary};
+        }}
+        QTextEdit {{
+            background-color: {colors.bg_input};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+        }}
+        QListWidget {{
+            background-color: {colors.bg_secondary};
+            color: {colors.text_primary};
+            border: 1px solid {colors.border_default};
+            border-radius: 4px;
+        }}
+        QListWidget::item:selected {{
+            background-color: {colors.accent_primary};
+        }}
+    """
+
+
+def get_section_label_style() -> str:
+    """Get section label style for current theme."""
+    colors = _theme_manager.current
+    return f"font-weight: bold; color: {colors.text_secondary};"
+
+
+def get_panel_title_style() -> str:
+    """Get panel title style for current theme."""
+    colors = _theme_manager.current
+    return f"font-weight: bold; color: {colors.text_primary}; padding: 4px;"
+
+
+def get_subsection_label_style() -> str:
+    """Get subsection label style for current theme."""
+    colors = _theme_manager.current
+    return f"font-size: 11px; color: {colors.text_secondary};"
+
+
+def get_validation_error_style() -> str:
+    """Get validation error label style for current theme."""
+    colors = _theme_manager.current
+    return f"color: {colors.accent_error};"
+
+
+def get_icon_button_style() -> str:
+    """Get icon-only button style for current theme."""
+    colors = _theme_manager.current
+    return f"""
+        QPushButton {{
+            background-color: transparent;
+            border: none;
+            color: {colors.text_secondary};
+            font-size: 14px;
+            padding: 4px;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.bg_tertiary};
+            border-radius: 4px;
+        }}
+    """
+
+
 # Backwards compatibility - these now call functions
 MAIN_WINDOW_STYLE = get_main_window_style()
 SCROLL_AREA_STYLE = get_scroll_area_style()

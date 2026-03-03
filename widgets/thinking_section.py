@@ -7,6 +7,15 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+from styles import (
+    COLORS,
+    get_thinking_section_style,
+    get_collapsible_toggle_style,
+    get_section_icon_style,
+    get_section_title_style,
+    get_thinking_text_style,
+)
+
 
 class ThinkingSection(QFrame):
     """Collapsible section for displaying AI thinking/reasoning.
@@ -24,13 +33,7 @@ class ThinkingSection(QFrame):
         self._is_complete = False
 
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            ThinkingSection {
-                background-color: #3d3522;
-                border: 1px solid #5c4d2b;
-                border-radius: 8px;
-            }
-        """)
+        self.setStyleSheet(get_thinking_section_style())
 
         self._setup_ui()
 
@@ -45,12 +48,12 @@ class ThinkingSection(QFrame):
 
         # Icon
         self._icon = QLabel("\u26a1")  # Lightning bolt
-        self._icon.setStyleSheet("color: #ffc107; font-size: 14px;")
+        self._icon.setStyleSheet(get_section_icon_style(COLORS.accent_warning))
         header.addWidget(self._icon)
 
         # Title
         self._title = QLabel("Thinking...")
-        self._title.setStyleSheet("color: #ffc107; font-weight: bold; font-size: 13px;")
+        self._title.setStyleSheet(get_section_title_style(COLORS.accent_warning))
         header.addWidget(self._title)
 
         header.addStretch()
@@ -58,18 +61,7 @@ class ThinkingSection(QFrame):
         # Toggle button
         self._toggle_btn = QPushButton("\u25bc")  # Down arrow
         self._toggle_btn.setFixedSize(24, 24)
-        self._toggle_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                color: #ffc107;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 193, 7, 0.2);
-                border-radius: 4px;
-            }
-        """)
+        self._toggle_btn.setStyleSheet(get_collapsible_toggle_style(COLORS.accent_warning))
         self._toggle_btn.clicked.connect(self._toggle)
         header.addWidget(self._toggle_btn)
 
@@ -78,15 +70,7 @@ class ThinkingSection(QFrame):
         # Content area
         self._text_edit = QPlainTextEdit()
         self._text_edit.setReadOnly(True)
-        self._text_edit.setStyleSheet("""
-            QPlainTextEdit {
-                background-color: transparent;
-                border: none;
-                color: #c4b99a;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 12px;
-            }
-        """)
+        self._text_edit.setStyleSheet(get_thinking_text_style())
         self._text_edit.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         self._text_edit.setMinimumHeight(40)
         # Auto-resize to fit content

@@ -11,6 +11,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QDir, QModelIndex
 from PySide6.QtGui import QAction
 
+from styles import (
+    get_file_tree_filter_style,
+    get_file_tree_view_style,
+    get_context_menu_style,
+)
+
 
 class FileTree(QWidget):
     """File tree widget for browsing and selecting files.
@@ -43,19 +49,7 @@ class FileTree(QWidget):
         # Filter input
         self._filter_input = QLineEdit()
         self._filter_input.setPlaceholderText("Filter files...")
-        self._filter_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #3d3d3d;
-                color: #e0e0e0;
-                border: 1px solid #5a5a5a;
-                border-radius: 4px;
-                padding: 4px 8px;
-                margin: 0 4px;
-            }
-            QLineEdit:focus {
-                border-color: #1a73e8;
-            }
-        """)
+        self._filter_input.setStyleSheet(get_file_tree_filter_style())
         self._filter_input.textChanged.connect(self._on_filter_changed)
         layout.addWidget(self._filter_input)
 
@@ -64,32 +58,7 @@ class FileTree(QWidget):
         self._tree.setHeaderHidden(True)
         self._tree.setAnimated(True)
         self._tree.setIndentation(16)
-        self._tree.setStyleSheet("""
-            QTreeView {
-                background-color: #1e1e1e;
-                color: #e0e0e0;
-                border: none;
-            }
-            QTreeView::item {
-                padding: 4px;
-            }
-            QTreeView::item:hover {
-                background-color: #2d2d2d;
-            }
-            QTreeView::item:selected {
-                background-color: #1a73e8;
-            }
-            QTreeView::branch:has-children:!has-siblings:closed,
-            QTreeView::branch:closed:has-children:has-siblings {
-                border-image: none;
-                image: url(none);
-            }
-            QTreeView::branch:open:has-children:!has-siblings,
-            QTreeView::branch:open:has-children:has-siblings  {
-                border-image: none;
-                image: url(none);
-            }
-        """)
+        self._tree.setStyleSheet(get_file_tree_view_style())
         self._tree.doubleClicked.connect(self._on_item_double_clicked)
         self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tree.customContextMenuRequested.connect(self._show_context_menu)
@@ -125,22 +94,7 @@ class FileTree(QWidget):
 
     def _setup_context_menu(self):
         """Set up the context menu styling."""
-        self._menu_style = """
-            QMenu {
-                background-color: #2d2d2d;
-                color: #e0e0e0;
-                border: 1px solid #3d3d3d;
-                border-radius: 4px;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 6px 24px;
-                border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #3d3d3d;
-            }
-        """
+        self._menu_style = get_context_menu_style()
 
     def _is_image_file(self, path: str) -> bool:
         """Check if the path is an image file."""

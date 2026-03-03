@@ -18,14 +18,14 @@ from models.data_types import Message, MessageRole, ToolOutputType
 from services.agent_bridge import AgentBridge
 from windows.dialogs.settings_dialog import SettingsDialog
 from windows.dialogs.help_dialog import HelpDialog
-from windows.dialogs.agent_dialog import AgentDialog
-from windows.dialogs.skills_dialog import SkillsDialog
 from windows.dialogs.mcp_dialog import MCPDialog
-from windows.dialogs.model_dialog import ModelDialog
 from styles import (
     COLORS, get_main_window_style, get_send_button_style,
     get_cancel_button_style, get_attach_button_style, input_style,
     get_theme_manager, ColorScheme,
+    get_attachment_chip_style, get_attachment_label_style,
+    get_attachment_remove_style, get_status_label_style,
+    get_status_activity_style, get_status_separator_style,
 )
 from code_puppy.config import get_owner_name, get_puppy_name
 from code_puppy.agents import get_current_agent
@@ -259,29 +259,29 @@ class CodePuppyApp(QMainWindow):
 
         # Activity indicator (left side, shows during operations)
         self._activity_label = QLabel()
-        self._activity_label.setStyleSheet(f"color: {COLORS.accent_info}; padding: 0 8px; font-weight: bold;")
+        self._activity_label.setStyleSheet(get_status_activity_style())
         self._activity_label.setVisible(False)
         self.statusBar().addWidget(self._activity_label)
 
         # Create permanent widgets for model, agent, and context info
         self._context_label = QLabel()
-        self._context_label.setStyleSheet(f"color: {COLORS.text_secondary}; padding: 0 8px;")
+        self._context_label.setStyleSheet(get_status_label_style(COLORS.text_secondary))
 
         # Separator 1
         separator1 = QFrame()
         separator1.setFrameShape(QFrame.Shape.VLine)
-        separator1.setStyleSheet(f"color: {COLORS.border_subtle};")
+        separator1.setStyleSheet(get_status_separator_style())
 
         self._agent_label = QLabel()
-        self._agent_label.setStyleSheet(f"color: {COLORS.accent_success}; padding: 0 8px;")
+        self._agent_label.setStyleSheet(get_status_label_style(COLORS.accent_success))
 
         # Separator 2
         separator2 = QFrame()
         separator2.setFrameShape(QFrame.Shape.VLine)
-        separator2.setStyleSheet(f"color: {COLORS.border_subtle};")
+        separator2.setStyleSheet(get_status_separator_style())
 
         self._model_label = QLabel()
-        self._model_label.setStyleSheet(f"color: {COLORS.accent_info}; padding: 0 8px;")
+        self._model_label.setStyleSheet(get_status_label_style(COLORS.accent_info))
 
         # Add permanent widgets (right side): context | agent | model
         self.statusBar().addPermanentWidget(self._context_label)
@@ -371,13 +371,7 @@ class CodePuppyApp(QMainWindow):
     def _create_attachment_chip(self, filepath: str) -> QWidget:
         """Create an attachment chip widget."""
         chip = QWidget()
-        chip.setStyleSheet("""
-            QWidget {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-                padding: 2px;
-            }
-        """)
+        chip.setStyleSheet(get_attachment_chip_style())
         layout = QHBoxLayout(chip)
         layout.setContentsMargins(8, 4, 4, 4)
         layout.setSpacing(4)
@@ -385,32 +379,14 @@ class CodePuppyApp(QMainWindow):
         # File name
         filename = os.path.basename(filepath)
         label = QPushButton(filename)
-        label.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #e0e0e0;
-                border: none;
-                text-align: left;
-                padding: 0;
-            }
-        """)
+        label.setStyleSheet(get_attachment_label_style())
         label.setToolTip(filepath)
         layout.addWidget(label)
 
         # Remove button
         remove_btn = QPushButton("\u2715")
         remove_btn.setFixedSize(20, 20)
-        remove_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #a0a0a0;
-                border: none;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                color: #ff6b6b;
-            }
-        """)
+        remove_btn.setStyleSheet(get_attachment_remove_style())
         remove_btn.clicked.connect(lambda: self._remove_attachment(filepath))
         layout.addWidget(remove_btn)
 
@@ -1054,10 +1030,10 @@ class CodePuppyApp(QMainWindow):
             input_container.setStyleSheet(f"QWidget {{ background-color: {colors.bg_secondary}; }}")
 
         # Refresh status bar labels
-        self._activity_label.setStyleSheet(f"color: {colors.accent_info}; padding: 0 8px; font-weight: bold;")
-        self._model_label.setStyleSheet(f"color: {colors.accent_info}; padding: 0 8px;")
-        self._agent_label.setStyleSheet(f"color: {colors.accent_success}; padding: 0 8px;")
-        self._context_label.setStyleSheet(f"color: {colors.text_secondary}; padding: 0 8px;")
+        self._activity_label.setStyleSheet(get_status_activity_style())
+        self._model_label.setStyleSheet(get_status_label_style(colors.accent_info))
+        self._agent_label.setStyleSheet(get_status_label_style(colors.accent_success))
+        self._context_label.setStyleSheet(get_status_label_style(colors.text_secondary))
 
     # -------------------------------------------------------------------------
     # Lifecycle
