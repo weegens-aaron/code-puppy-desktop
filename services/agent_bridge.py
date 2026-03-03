@@ -9,7 +9,7 @@ from typing import Optional
 
 from PySide6.QtCore import QObject, Signal, QThread
 
-from .agent_worker import AgentWorker
+from services.agent_worker import AgentWorker
 
 logger = logging.getLogger(__name__)
 

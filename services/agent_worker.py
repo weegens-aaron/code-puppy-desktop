@@ -154,9 +154,14 @@ class AgentWorker(QObject):
         return self._agent
 
     def clear_agent(self):
-        """Clear the cached agent (for new chat)."""
+        """Clear the cached agent (for new chat or agent switch).
+
+        This clears the message history and forces a fresh agent reference
+        on the next call to get_agent().
+        """
         if self._agent:
             self._agent.clear_message_history()
+            logger.info("Cleared agent message history")
         self._agent = None
 
     def _convert_attachments(self, file_paths: list) -> list:
@@ -383,7 +388,7 @@ class AgentWorker(QObject):
             return
 
         try:
-            from ..utils.tool_output_extractor import ToolOutputExtractor
+            from utils.tool_output_extractor import ToolOutputExtractor
 
             output_type, metadata = ToolOutputExtractor.extract(tool_name, tool_args, result)
             if output_type:

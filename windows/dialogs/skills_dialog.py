@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ...styles import COLORS, button_style
+from styles import COLORS, button_style
 from code_puppy.plugins.agent_skills.config import (
     get_disabled_skills,
     get_skills_enabled,

@@ -6,10 +6,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from ..models.message_model import MessageModel
-from ..models.data_types import Message
-from .message_bubble import MessageWidget
-from ..styles import COLORS, SCROLL_AREA_STYLE
+from models.message_model import MessageModel
+from models.data_types import Message
+from widgets.message_bubble import MessageWidget
+from styles import COLORS, SCROLL_AREA_STYLE
 
 
 class MessageListView(QScrollArea):

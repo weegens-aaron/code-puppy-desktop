@@ -72,7 +72,8 @@ def launch_desktop():
 
     setup_logging()
 
-    from .app import CodePuppyApp
+    # Plugin dir should already be in sys.path from register_callbacks.py
+    from app import CodePuppyApp
 
     # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(

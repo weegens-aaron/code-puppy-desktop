@@ -12,18 +12,18 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QElapsedTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
-from .widgets.message_list import MessageListView
-from .widgets.file_tree import FileTree
-from .models.data_types import Message, MessageRole, ToolOutputType
-from .services.agent_bridge import AgentBridge
-from .windows.dialogs.settings_dialog import SettingsDialog
-from .windows.dialogs.help_dialog import HelpDialog
-from .windows.dialogs.agent_dialog import AgentDialog
-from .windows.dialogs.skills_dialog import SkillsDialog
-from .windows.dialogs.mcp_dialog import MCPDialog
-from .windows.dialogs.model_dialog import ModelDialog
-from .windows.dialogs.session_dialog import SessionDialog
-from .styles import (
+from widgets.message_list import MessageListView
+from widgets.file_tree import FileTree
+from models.data_types import Message, MessageRole, ToolOutputType
+from services.agent_bridge import AgentBridge
+from windows.dialogs.settings_dialog import SettingsDialog
+from windows.dialogs.help_dialog import HelpDialog
+from windows.dialogs.agent_dialog import AgentDialog
+from windows.dialogs.skills_dialog import SkillsDialog
+from windows.dialogs.mcp_dialog import MCPDialog
+from windows.dialogs.model_dialog import ModelDialog
+from windows.dialogs.session_dialog import SessionDialog
+from styles import (
     COLORS, get_main_window_style, get_send_button_style,
     get_cancel_button_style, get_attach_button_style, input_style,
     get_theme_manager, ColorScheme,
@@ -578,6 +578,13 @@ class CodePuppyApp(QMainWindow):
             if selected:
                 # Clear the cached agent in the worker so it picks up the new one
                 self.agent_bridge.clear_history()
+                # Clear UI message list (agent change means new context)
+                self.message_list.clear()
+                self._clear_attachments()
+                self._current_thinking_index = None
+                self._current_tool_indices.clear()
+                self._assistant_message_index = None
+                self._add_welcome_message()
                 # Update displays
                 self._update_status_bar_info()
                 self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(os.getcwd())}")

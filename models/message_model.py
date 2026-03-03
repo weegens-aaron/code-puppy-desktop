@@ -4,7 +4,7 @@ from typing import Optional
 
 from PySide6.QtCore import Qt, QAbstractListModel, QModelIndex, Signal
 
-from .data_types import Message
+from models.data_types import Message
 
 
 class MessageModel(QAbstractListModel):

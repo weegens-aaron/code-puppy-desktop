@@ -4,8 +4,8 @@ from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem
 from PySide6.QtCore import Qt, QSize, QRect, QModelIndex
 from PySide6.QtGui import QPainter, QColor, QBrush, QPen, QFont, QFontMetrics
 
-from ..models.message_model import MessageModel
-from ..models.data_types import MessageRole
+from models.message_model import MessageModel
+from models.data_types import MessageRole
 
 
 class MessageDelegate(QStyledItemDelegate):

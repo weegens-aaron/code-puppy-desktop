@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ...styles import COLORS, button_style
+from styles import COLORS, button_style
 from code_puppy.mcp_.manager import get_mcp_manager, MCPManager
 from code_puppy.mcp_.managed_server import ServerConfig, ServerState
 

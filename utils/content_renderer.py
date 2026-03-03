@@ -9,11 +9,11 @@ import os
 import re
 from typing import Any
 
-from .html_utils import escape_html, wrap_html_with_css
-from .formatting import (
+from utils.html_utils import escape_html, wrap_html_with_css
+from utils.formatting import (
     format_size, get_file_icon, get_operation_icon
 )
-from . import css_styles
+from utils import css_styles
 
 
 class ContentRenderer:

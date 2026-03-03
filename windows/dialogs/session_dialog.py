@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from ...styles import COLORS, button_style
+from styles import COLORS, button_style
 from code_puppy.config import AUTOSAVE_DIR, rotate_autosave_id
 from code_puppy.session_storage import list_sessions, load_session
 

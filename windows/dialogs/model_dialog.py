@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from ...styles import COLORS, button_style
+from styles import COLORS, button_style
 from code_puppy.model_factory import ModelFactory
 from code_puppy.command_line.model_picker_completion import (
     get_active_model,

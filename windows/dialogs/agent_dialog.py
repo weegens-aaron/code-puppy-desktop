@@ -12,7 +12,7 @@ from code_puppy.agents import (
     get_current_agent,
     set_current_agent,
 )
-from ...styles import COLORS, button_style
+from styles import COLORS, button_style
 
 
 class AgentDialog(QDialog):
