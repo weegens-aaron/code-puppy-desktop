@@ -480,8 +480,9 @@ def get_thinking_section_style() -> str:
     return f"""
         ThinkingSection {{
             background-color: {colors.role_thinking_bg};
-            border: 1px solid {colors.role_thinking_text}40;
-            border-radius: 8px;
+            border-left: 2px solid {colors.role_thinking_text}60;
+            border-radius: 0;
+            padding-left: 8px;
         }}
     """
 
@@ -492,8 +493,9 @@ def get_tool_call_section_style() -> str:
     return f"""
         ToolCallSection {{
             background-color: {colors.role_tool_bg};
-            border: 1px solid {colors.role_tool_text}40;
-            border-radius: 8px;
+            border-left: 2px solid {colors.role_tool_text}60;
+            border-radius: 0;
+            padding-left: 8px;
         }}
     """
 
