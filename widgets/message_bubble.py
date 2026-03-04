@@ -211,7 +211,16 @@ class MessageWidget(QFrame):
         """Render tool output based on output_type in metadata."""
         output_type = metadata.get("output_type", ToolOutputType.JSON.value)
 
-        if output_type == ToolOutputType.DIFF.value:
+        if output_type == ToolOutputType.FILE_EDIT.value:
+            return ContentRenderer.render_file_edit(
+                filepath=metadata.get("filepath", ""),
+                operation=metadata.get("operation", "modify"),
+                success=metadata.get("success", True),
+                message=metadata.get("message", ""),
+                diff_text=metadata.get("diff_text", ""),
+                changed=metadata.get("changed", True),
+            )
+        elif output_type == ToolOutputType.DIFF.value:
             return ContentRenderer.render_diff(
                 diff_text=metadata.get("diff_text", content),
                 operation=metadata.get("operation", "modify"),

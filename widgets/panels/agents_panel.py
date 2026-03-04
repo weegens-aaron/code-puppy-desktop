@@ -45,17 +45,16 @@ class AgentsPanel(QWidget):
                 height: 2px;
             }}
             QListWidget {{
-                background-color: {COLORS.bg_secondary};
+                background-color: {COLORS.bg_primary};
                 color: {COLORS.text_primary};
-                border: 1px solid {COLORS.border_subtle};
-                border-radius: 4px;
-                padding: 4px;
+                border: none;
+                padding: 0;
                 outline: none;
             }}
             QListWidget::item {{
                 padding: 6px;
-                border-radius: 4px;
-                margin: 1px 0;
+                border: none;
+                margin: 0;
             }}
             QListWidget::item:selected {{
                 background-color: {COLORS.accent_primary};
@@ -65,11 +64,10 @@ class AgentsPanel(QWidget):
                 background-color: {COLORS.bg_tertiary};
             }}
             QTextEdit {{
-                background-color: {COLORS.bg_secondary};
+                background-color: {COLORS.bg_primary};
                 color: {COLORS.text_primary};
-                border: 1px solid {COLORS.border_subtle};
-                border-radius: 4px;
-                padding: 8px;
+                border: none;
+                padding: 8px 0;
             }}
             QLabel {{
                 color: {COLORS.text_primary};

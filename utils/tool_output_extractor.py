@@ -51,16 +51,46 @@ class ToolOutputExtractor:
 # Extractor implementations (registered via decorator)
 # =============================================================================
 
-@ToolOutputExtractor.register("edit_file", "write_file", "create_file")
-def _extract_diff(tool_args: dict, result: Any) -> tuple[str, dict]:
-    """Extract diff data from file edit results."""
-    if isinstance(result, dict) and result.get("diff"):
-        return "diff", {
-            "diff_text": result.get("diff", ""),
-            "operation": result.get("operation", "modify"),
-            "filepath": result.get("path", tool_args.get("file_path", "")),
-        }
-    return "", {}
+@ToolOutputExtractor.register("edit_file", "write_file", "create_file", "delete_file")
+def _extract_file_edit(tool_args: dict, result: Any) -> tuple[str, dict]:
+    """Extract file edit data from file operation results.
+    
+    Handles both diff-based edits and content-based writes.
+    """
+    if not isinstance(result, dict):
+        return "", {}
+    
+    # Get file path from result or args
+    filepath = result.get("path", "")
+    if not filepath:
+        # Try to get from args (handle nested payload structure)
+        payload = tool_args.get("payload", tool_args)
+        filepath = payload.get("file_path", payload.get("path", ""))
+    
+    # Determine operation type
+    message = result.get("message", "")
+    if "created" in message.lower():
+        operation = "create"
+    elif "deleted" in message.lower():
+        operation = "delete"
+    elif result.get("diff"):
+        operation = "modify"
+    else:
+        operation = "write"
+    
+    metadata = {
+        "filepath": filepath,
+        "operation": operation,
+        "success": result.get("success", True),
+        "message": message,
+        "changed": result.get("changed", True),
+    }
+    
+    # Include diff if available
+    if result.get("diff"):
+        metadata["diff_text"] = result.get("diff", "")
+    
+    return "file_edit", metadata
 
 
 @ToolOutputExtractor.register("run_shell_command", "execute_command", "shell", "bash")

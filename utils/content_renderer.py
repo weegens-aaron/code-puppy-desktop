@@ -187,6 +187,107 @@ class ContentRenderer:
         return wrap_html_with_css(''.join(html_parts), css_styles.get_diff_css())
 
     @staticmethod
+    def render_file_edit(
+        filepath: str,
+        operation: str = "modify",
+        success: bool = True,
+        message: str = "",
+        diff_text: str = "",
+        changed: bool = True,
+    ) -> str:
+        """Render a file edit result with diff or status.
+        
+        Args:
+            filepath: Path to the edited file
+            operation: Type of operation (create, modify, delete, write)
+            success: Whether the operation succeeded
+            message: Status message from the operation
+            diff_text: Unified diff text (if available)
+            changed: Whether the file was actually changed
+        
+        Returns:
+            HTML string with styled file edit display
+        """
+        icon = get_operation_icon(operation)
+        
+        # Status indicator
+        if not success:
+            status_icon = "\u2717"  # X mark
+            status_color = "#f87171"  # Red
+            status_text = "Failed"
+        elif not changed:
+            status_icon = "\u2713"  # Checkmark
+            status_color = "#a0a0a0"  # Gray
+            status_text = "No changes"
+        else:
+            status_icon = "\u2713"  # Checkmark
+            status_color = "#4ade80"  # Green
+            status_text = operation.capitalize() + "d" if operation != "modify" else "Modified"
+        
+        html_parts = [
+            '<div class="panel-header">',
+            f'<span class="icon">{icon}</span>',
+            f'<span class="operation">{operation.upper()}</span> ',
+            f'<span class="filepath">{escape_html(filepath)}</span>',
+            f'<span class="status" style="margin-left: 12px; color: {status_color};">',
+            f'{status_icon} {status_text}</span>',
+            '</div>',
+        ]
+        
+        # Show diff if available
+        if diff_text and changed:
+            html_parts.append('<div class="diff-content">')
+            
+            line_count = 0
+            max_lines = 30  # Limit displayed lines
+            
+            for line in diff_text.split('\n'):
+                if not line:
+                    continue
+                # Skip diff headers
+                if line.startswith(('---', '+++', '@@', 'diff ', 'index ')):
+                    continue
+                
+                line_count += 1
+                if line_count > max_lines:
+                    continue
+                
+                if line.startswith('+'):
+                    html_parts.append(
+                        f'<div class="diff-line diff-add">'
+                        f'<span class="marker">+ </span>{escape_html(line[1:])}</div>'
+                    )
+                elif line.startswith('-'):
+                    html_parts.append(
+                        f'<div class="diff-line diff-remove">'
+                        f'<span class="marker">- </span>{escape_html(line[1:])}</div>'
+                    )
+                else:
+                    content = line[1:] if line.startswith(' ') else line
+                    html_parts.append(
+                        f'<div class="diff-line diff-context">'
+                        f'<span class="marker">  </span>{escape_html(content)}</div>'
+                    )
+            
+            # Show truncation notice
+            total_lines = len([l for l in diff_text.split('\n') if l and not l.startswith(('---', '+++', '@@', 'diff ', 'index '))])
+            if total_lines > max_lines:
+                html_parts.append(
+                    f'<div class="diff-line diff-context" style="color: #a0a0a0;">'
+                    f'... ({total_lines - max_lines} more lines)</div>'
+                )
+            
+            html_parts.append('</div>')
+        elif message:
+            # Show message if no diff
+            html_parts.append(
+                f'<div class="panel-meta" style="padding: 8px 12px; color: #a0a0a0;">'
+                f'{escape_html(message)}</div>'
+            )
+        
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_diff_css())
+
+    @staticmethod
     def render_shell_command(
         command: str,
         output: str = "",

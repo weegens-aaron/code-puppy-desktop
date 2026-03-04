@@ -1,0 +1,36 @@
+============================================================
+Launch failed at 2026-03-04 07:52:11.612839
+Traceback (most recent call last):
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/launch.pyw", line 53, in <module>
+    sys.exit(launch_desktop())
+             ~~~~~~~~~~~~~~^^
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/main.py", line 78, in launch_desktop
+    from app import CodePuppyApp
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/app.py", line 15, in <module>
+    from widgets.message_list import MessageListView
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/__init__.py", line 4, in <module>
+    from widgets.message_list import MessageListView
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/message_list.py", line 11, in <module>
+    from widgets.message_bubble import MessageWidget
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/message_bubble.py", line 19, in <module>
+    from code_puppy.config import get_owner_name, get_puppy_name
+ModuleNotFoundError: No module named 'code_puppy'
+
+============================================================
+Launch failed at 2026-03-04 07:52:29.989218
+Traceback (most recent call last):
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/launch.pyw", line 53, in <module>
+    sys.exit(launch_desktop())
+             ~~~~~~~~~~~~~~^^
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/main.py", line 78, in launch_desktop
+    from app import CodePuppyApp
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/app.py", line 15, in <module>
+    from widgets.message_list import MessageListView
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/__init__.py", line 4, in <module>
+    from widgets.message_list import MessageListView
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/message_list.py", line 11, in <module>
+    from widgets.message_bubble import MessageWidget
+  File "/Users/a0w0f56/.code_puppy/plugins/code-puppy-desktop/widgets/message_bubble.py", line 19, in <module>
+    from code_puppy.config import get_owner_name, get_puppy_name
+ModuleNotFoundError: No module named 'code_puppy'
+

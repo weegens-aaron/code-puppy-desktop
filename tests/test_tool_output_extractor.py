@@ -43,29 +43,41 @@ class TestDiffExtractor:
 
     @pytest.mark.parametrize("tool_name", ["edit_file", "write_file", "create_file"])
     def test_extracts_diff(self, tool_name: str):
-        """Test diff extraction from file edit tools."""
+        """Test file_edit extraction from file edit tools."""
         result = {
             "diff": "--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new",
-            "operation": "modify",
+            "message": "Replacements applied.",
             "path": "/path/to/file.py",
+            "success": True,
+            "changed": True,
         }
 
         output_type, metadata = ToolOutputExtractor.extract(
             tool_name, {"file_path": "/path/to/file.py"}, result
         )
 
-        assert output_type == "diff"
+        assert output_type == "file_edit"
         assert metadata["diff_text"] == result["diff"]
         assert metadata["operation"] == "modify"
         assert metadata["filepath"] == "/path/to/file.py"
+        assert metadata["success"] is True
+        assert metadata["changed"] is True
 
-    def test_returns_empty_when_no_diff(self):
-        """Test returns empty when result has no diff."""
+    def test_extracts_file_edit_without_diff(self):
+        """Test file_edit extraction when result has no diff (content write)."""
+        result = {
+            "success": True,
+            "path": "/path/to/new_file.py",
+            "message": "File created.",
+            "changed": True,
+        }
         output_type, metadata = ToolOutputExtractor.extract(
-            "edit_file", {}, {"success": True}
+            "edit_file", {"file_path": "/path/to/new_file.py"}, result
         )
-        assert output_type == ""
-        assert metadata == {}
+        assert output_type == "file_edit"
+        assert metadata["filepath"] == "/path/to/new_file.py"
+        assert metadata["success"] is True
+        assert "diff_text" not in metadata  # No diff for content writes
 
 
 class TestShellExtractor:

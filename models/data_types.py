@@ -20,6 +20,7 @@ class MessageRole(Enum):
 class ToolOutputType(Enum):
     """Types of formatted tool output."""
     DIFF = "diff"
+    FILE_EDIT = "file_edit"  # File edit result (with diff or content preview)
     SHELL = "shell"
     FILE_LISTING = "file_listing"
     GREP = "grep"
