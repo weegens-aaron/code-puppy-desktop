@@ -270,10 +270,11 @@ class ContentRenderer:
                     )
             
             html_parts.append('</div>')
-        elif message:
-            # Show message if no diff
+        
+        # Always show message if available
+        if message:
             html_parts.append(
-                f'<div class="panel-meta" style="padding: 8px 12px; color: #a0a0a0;">'
+                f'<div class="panel-meta" style="padding: 4px 12px; color: #a0a0a0;">'
                 f'{escape_html(message)}</div>'
             )
         
