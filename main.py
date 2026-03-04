@@ -25,18 +25,20 @@ def _install_dependencies():
 
     print("Installing desktop GUI dependencies...")
 
-    # Try uv first (faster and may be the active package manager)
+    # Try uv first with --python to target current interpreter
     if shutil.which("uv"):
         try:
             subprocess.check_call([
-                "uv", "pip", "install", "-r", str(requirements_path)
+                "uv", "pip", "install",
+                "--python", sys.executable,
+                "-r", str(requirements_path)
             ])
             print("Dependencies installed successfully!")
             return True
         except subprocess.CalledProcessError:
             pass  # Fall through to pip
 
-    # Fall back to pip
+    # Fall back to pip using current Python
     try:
         subprocess.check_call([
             sys.executable, "-m", "pip", "install", "-r", str(requirements_path)
