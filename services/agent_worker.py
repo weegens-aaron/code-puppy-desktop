@@ -212,6 +212,19 @@ class AgentWorker(QObject):
         # Set up message bus for diff messages
         message_bus = get_message_bus()
         message_bus.mark_renderer_active()
+        
+        # Process any buffered messages first
+        buffered = message_bus.get_buffered_messages()
+        if buffered:
+            logger.info(f"Processing {len(buffered)} buffered messages")
+            for msg in buffered:
+                if isinstance(msg, DiffMessage):
+                    diff_text = "\n".join(
+                        (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
+                        for line in msg.diff_lines
+                    )
+                    self.diff_received.emit(msg.path, msg.operation, diff_text)
+            message_bus.clear_buffer()
 
         # Retry configuration
         max_retries = 3
