@@ -115,7 +115,6 @@ class CodePuppyApp(QMainWindow):
         self.agent_bridge.tool_call_args_delta.connect(self._on_tool_call_args_delta)
         self.agent_bridge.tool_call_complete.connect(self._on_tool_call_complete)
         self.agent_bridge.tool_output_received.connect(self._on_tool_output)
-        self.agent_bridge.diff_received.connect(self._on_diff_received)
         self.agent_bridge.response_complete.connect(self._on_response_complete)
         self.agent_bridge.error_occurred.connect(self._on_error)
         self.agent_bridge.agent_busy.connect(self._on_agent_busy)
@@ -860,37 +859,6 @@ class CodePuppyApp(QMainWindow):
         )
         # Reset assistant message index so any text after tool output gets a new bubble
         self._assistant_message_index = None
-
-    def _on_diff_received(self, filepath: str, operation: str, diff_text: str):
-        """Handle diff message from message bus.
-
-        This captures diffs that are emitted via the message bus before
-        they're stripped from the tool result.
-
-        Args:
-            filepath: Path to the file that was modified
-            operation: Type of operation (create, modify, delete)
-            diff_text: The unified diff text
-        """
-        if not diff_text:
-            return
-
-        # Add a TOOL_OUTPUT message with the diff
-        self.message_list.message_model.add_message(
-            Message(
-                role=MessageRole.TOOL_OUTPUT,
-                content="",
-                metadata={
-                    "tool_name": "edit_file",
-                    "output_type": "file_edit",
-                    "filepath": filepath,
-                    "operation": operation,
-                    "success": True,
-                    "changed": True,
-                    "diff_text": diff_text,
-                }
-            )
-        )
 
     def _on_response_complete(self, response: str):
         """Handle response completion."""

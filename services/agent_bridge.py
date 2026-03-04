@@ -30,7 +30,6 @@ class AgentBridge(QObject):
     tool_call_args_delta = Signal(str, str)  # tool_name, args_delta
     tool_call_complete = Signal(str)
     tool_output_received = Signal(str, str, dict)  # tool_name, output_type, metadata
-    diff_received = Signal(str, str, str)  # filepath, operation, diff_text
     response_complete = Signal(str)
     error_occurred = Signal(str)
     agent_busy = Signal(bool)
@@ -50,7 +49,6 @@ class AgentBridge(QObject):
         self._worker.tool_call_args_delta.connect(self.tool_call_args_delta)
         self._worker.tool_call_complete.connect(self.tool_call_complete)
         self._worker.tool_output_received.connect(self.tool_output_received)
-        self._worker.diff_received.connect(self.diff_received)
         self._worker.response_complete.connect(self.response_complete)
         self._worker.error_occurred.connect(self.error_occurred)
         self._worker.agent_busy.connect(self.agent_busy)
