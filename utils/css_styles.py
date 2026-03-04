@@ -163,13 +163,15 @@ def get_diff_css() -> str:
     .panel-header .filepath {{ color: {COLORS.accent_primary}; }}
     .diff-content {{
         background-color: {COLORS.bg_code};
-        padding: 8px 0;
+        padding: 4px 0;
         overflow-x: auto;
+        line-height: 1.3;
     }}
     .diff-line {{
-        padding: 1px 12px;
+        padding: 0 12px;
         white-space: pre-wrap;
         word-wrap: break-word;
+        margin: 0;
     }}
     .diff-add {{
         background-color: #1e3a1e;
