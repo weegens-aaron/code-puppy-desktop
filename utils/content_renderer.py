@@ -245,18 +245,11 @@ class ContentRenderer:
         if diff_text and changed:
             html_parts.append('<div class="diff-content">')
             
-            line_count = 0
-            max_lines = 30  # Limit displayed lines
-            
             for line in diff_text.split('\n'):
                 if not line:
                     continue
                 # Skip diff headers
                 if line.startswith(('---', '+++', '@@', 'diff ', 'index ')):
-                    continue
-                
-                line_count += 1
-                if line_count > max_lines:
                     continue
                 
                 if line.startswith('+'):
@@ -275,14 +268,6 @@ class ContentRenderer:
                         f'<div class="diff-line diff-context">'
                         f'<span class="marker">  </span>{escape_html(content)}</div>'
                     )
-            
-            # Show truncation notice
-            total_lines = len([l for l in diff_text.split('\n') if l and not l.startswith(('---', '+++', '@@', 'diff ', 'index '))])
-            if total_lines > max_lines:
-                html_parts.append(
-                    f'<div class="diff-line diff-context" style="color: #a0a0a0;">'
-                    f'... ({total_lines - max_lines} more lines)</div>'
-                )
             
             html_parts.append('</div>')
         elif message:
@@ -352,7 +337,7 @@ class ContentRenderer:
             '<div class="panel-content">'
         ]
 
-        for entry in entries[:100]:
+        for entry in entries:
             path = entry.get('path', '')
             is_dir = entry.get('type') == 'dir'
             size = entry.get('size', 0)
@@ -369,12 +354,6 @@ class ContentRenderer:
                 f'<div class="file-entry {entry_class}">'
                 f'<span class="icon">{icon}</span>'
                 f'{escape_html(name)}{dir_suffix}{size_str}</div>'
-            )
-
-        if len(entries) > 100:
-            html_parts.append(
-                f'<div class="file-entry" style="color:#a0a0a0">'
-                f'... and {len(entries) - 100} more</div>'
             )
 
         html_parts.append('</div>')
@@ -421,7 +400,7 @@ class ContentRenderer:
                     f'<span class="count">({len(file_matches)} {match_word})</span></div>'
                 )
 
-                for match in file_matches[:10]:
+                for match in file_matches:
                     line_num = match.get('line_number', 0)
                     content = match.get('line_content', '')
                     highlighted = re.sub(
@@ -434,12 +413,6 @@ class ContentRenderer:
                         f'<div class="grep-match">'
                         f'<span class="line-num">{line_num:4d}</span> \u2502 '
                         f'<span class="content">{highlighted}</span></div>'
-                    )
-
-                if len(file_matches) > 10:
-                    html_parts.append(
-                        f'<div class="grep-match" style="color:#a0a0a0">'
-                        f'... and {len(file_matches) - 10} more matches</div>'
                     )
 
             file_count = len(by_file)
