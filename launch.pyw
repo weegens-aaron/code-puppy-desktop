@@ -28,6 +28,13 @@ try:
     if str(plugin_dir) not in sys.path:
         sys.path.insert(0, str(plugin_dir))
 
+    # Add code_puppy plugins directory for plugin imports (e.g., agent_skills)
+    code_puppy_plugins_dir = Path.home() / ".code_puppy" / "plugins"
+    if code_puppy_plugins_dir.exists():
+        for plugin_path in code_puppy_plugins_dir.iterdir():
+            if plugin_path.is_dir() and str(plugin_path) not in sys.path:
+                sys.path.insert(0, str(plugin_path))
+
     # Also ensure code_puppy is importable
     try:
         import code_puppy

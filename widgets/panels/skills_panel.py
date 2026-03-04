@@ -7,20 +7,35 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from styles import COLORS, button_style
-from code_puppy.plugins.agent_skills.config import (
-    get_disabled_skills,
-    get_skills_enabled,
-    set_skill_disabled,
-    set_skills_enabled,
-)
-from code_puppy.plugins.agent_skills.discovery import (
-    discover_skills,
-    refresh_skill_cache,
-)
-from code_puppy.plugins.agent_skills.metadata import (
-    parse_skill_metadata,
-    get_skill_resources,
-)
+
+# Try to import agent_skills - may not be available in all installations
+SKILLS_AVAILABLE = False
+try:
+    from code_puppy.plugins.agent_skills.config import (
+        get_disabled_skills,
+        get_skills_enabled,
+        set_skill_disabled,
+        set_skills_enabled,
+    )
+    from code_puppy.plugins.agent_skills.discovery import (
+        discover_skills,
+        refresh_skill_cache,
+    )
+    from code_puppy.plugins.agent_skills.metadata import (
+        parse_skill_metadata,
+        get_skill_resources,
+    )
+    SKILLS_AVAILABLE = True
+except ImportError:
+    # Provide stub functions if agent_skills is not available
+    def get_disabled_skills(): return set()
+    def get_skills_enabled(): return False
+    def set_skill_disabled(name, disabled): pass
+    def set_skills_enabled(enabled): pass
+    def discover_skills(): return []
+    def refresh_skill_cache(): pass
+    def parse_skill_metadata(path): return None
+    def get_skill_resources(path): return []
 
 
 class SkillsPanel(QWidget):
@@ -315,6 +330,18 @@ class SkillsPanel(QWidget):
 
     def _render_no_skills_help(self) -> str:
         """Render help text when no skills are found."""
+        if not SKILLS_AVAILABLE:
+            return f"""
+            <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
+                <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">Skills Unavailable</h3>
+                <p style="color: {COLORS.text_secondary}; font-size: 12px;">
+                    The agent_skills plugin is not installed.
+                </p>
+                <p style="color: {COLORS.text_muted}; font-size: 11px; margin-top: 8px;">
+                    Skills management requires code_puppy.plugins.agent_skills
+                </p>
+            </div>
+            """
         return f"""
         <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
             <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">No Skills</h3>
