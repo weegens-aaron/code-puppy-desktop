@@ -46,7 +46,6 @@ def _panel_header() -> str:
         .panel-header {{
             padding: 8px 12px;
             background-color: {COLORS.bg_tertiary};
-            border-radius: 6px 6px 0 0;
         }}
         .panel-header .banner {{ color: {COLORS.text_primary}; font-weight: bold; }}
         .panel-header .icon {{ margin-right: 8px; }}
@@ -58,7 +57,6 @@ def _panel_content() -> str:
     return f"""
         .panel-content {{
             background-color: {COLORS.bg_code};
-            border-radius: 0 0 6px 6px;
             padding: 8px 12px;
         }}
     """
@@ -124,13 +122,11 @@ def get_markdown_css() -> str:
         background-color: {COLORS.bg_code};
         color: {COLORS.text_code};
         padding: 2px 6px;
-        border-radius: 3px;
         font-family: 'Consolas', 'Monaco', monospace;
         font-size: 13px;
     }}
     .code-block {{
         background-color: {COLORS.bg_code};
-        border-radius: 6px;
         padding: 12px;
         margin: 8px 0;
         overflow-x: auto;
@@ -167,7 +163,6 @@ def get_diff_css() -> str:
     .panel-header .filepath {{ color: {COLORS.accent_primary}; }}
     .diff-content {{
         background-color: {COLORS.bg_code};
-        border-radius: 0 0 6px 6px;
         padding: 8px 0;
         overflow-x: auto;
     }}
@@ -202,7 +197,6 @@ def get_shell_css() -> str:
     .panel-header .command {{ color: {COLORS.accent_primary}; }}
     .shell-output {{
         background-color: {COLORS.bg_code};
-        border-radius: 0 0 6px 6px;
         padding: 8px 12px;
         color: {COLORS.text_secondary};
         white-space: pre-wrap;
@@ -231,7 +225,6 @@ def get_file_listing_css() -> str:
     .listing-summary {{
         padding: 8px 12px;
         background-color: {COLORS.bg_secondary};
-        border-radius: 0 0 6px 6px;
         color: {COLORS.text_secondary};
         font-size: 12px;
     }}
@@ -280,7 +273,6 @@ def get_file_header_css() -> str:
     .file-header {{
         padding: 8px 12px;
         background-color: {COLORS.bg_tertiary};
-        border-radius: 6px;
     }}
     .file-header .banner {{ color: {COLORS.text_primary}; font-weight: bold; }}
     .file-header .filepath {{ color: {COLORS.accent_primary}; }}
@@ -313,13 +305,11 @@ def get_tool_call_css() -> str:
         font-family: 'Consolas', 'Monaco', monospace;
         background-color: {COLORS.bg_secondary};
         padding: 2px 6px;
-        border-radius: 3px;
     }}
     .tool-preview {{
         margin-top: 8px;
         padding: 8px;
         background-color: {COLORS.bg_secondary};
-        border-radius: 4px;
         border-left: 3px solid {COLORS.accent_primary};
     }}
     .tool-preview .label {{
@@ -369,7 +359,6 @@ def get_error_css() -> str:
     .error-container {{
         padding: 12px;
         background-color: {COLORS.role_error_bg};
-        border-radius: 6px;
         border-left: 4px solid {COLORS.accent_error};
     }}
     .error-header {{
@@ -445,7 +434,6 @@ def get_skill_list_css() -> str:
         background-color: {COLORS.bg_tertiary};
         color: {COLORS.accent_primary};
         padding: 2px 8px;
-        border-radius: 12px;
         font-size: 11px;
         margin-right: 6px;
     }}
@@ -457,7 +445,6 @@ def get_skill_list_css() -> str:
     .skills-summary {{
         padding: 8px 12px;
         background-color: {COLORS.bg_secondary};
-        border-radius: 0 0 6px 6px;
         color: {COLORS.text_secondary};
         font-size: 12px;
     }}
@@ -489,7 +476,6 @@ def get_skill_activate_css() -> str:
         margin-top: 8px;
         padding: 8px 12px;
         background-color: {COLORS.bg_tertiary};
-        border-radius: 4px;
         color: {COLORS.accent_success};
     }}
     .skill-resources {{
@@ -509,7 +495,6 @@ def get_skill_activate_css() -> str:
         margin-top: 12px;
         padding: 8px 12px;
         background-color: {COLORS.bg_secondary};
-        border-radius: 4px;
         border-left: 3px solid {COLORS.accent_primary};
         max-height: 200px;
         overflow-y: auto;

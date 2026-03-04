@@ -111,14 +111,12 @@ p {{
 code {{
     background-color: {code_bg};
     padding: 2px 6px;
-    border-radius: 4px;
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 13px;
 }}
 pre {{
     background-color: {code_bg};
     padding: 12px;
-    border-radius: 8px;
     overflow-x: auto;
     margin: 8px 0;
 }}
@@ -128,7 +126,6 @@ pre code {{
 }}
 .highlight {{
     background-color: {code_bg};
-    border-radius: 8px;
     padding: 12px;
     overflow-x: auto;
     margin: 8px 0;
