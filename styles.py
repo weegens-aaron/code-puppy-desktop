@@ -667,7 +667,7 @@ def get_attachment_chip_style() -> str:
     """Get attachment chip container style for current theme."""
     colors = _theme_manager.current
     return f"""
-        QFrame {{
+        QWidget {{
             background-color: {colors.bg_tertiary};
             border-radius: 4px;
             padding: 2px 4px;
@@ -679,8 +679,10 @@ def get_attachment_label_style() -> str:
     """Get attachment label style for current theme."""
     colors = _theme_manager.current
     return f"""
-        QLabel {{
+        QPushButton {{
             color: {colors.text_primary};
+            background: transparent;
+            border: none;
             font-size: 12px;
             padding: 0 4px;
         }}

@@ -300,24 +300,44 @@ class MessageWidget(QFrame):
         self._attachments_container.setVisible(has_attachments)
 
     def _add_image_attachment(self, filepath: str):
-        """Add an image attachment widget."""
-        pixmap = QPixmap(filepath)
-        if not pixmap.isNull():
-            max_width = 300
-            if pixmap.width() > max_width:
-                pixmap = pixmap.scaledToWidth(
-                    max_width, Qt.TransformationMode.SmoothTransformation
-                )
+        """Add an image attachment widget using HTML like the tool renderer."""
+        # Resolve to absolute path
+        if not os.path.isabs(filepath):
+            abs_path = os.path.abspath(filepath)
+        else:
+            abs_path = filepath
 
-            img_label = QLabel()
-            img_label.setPixmap(pixmap)
-            img_label.setStyleSheet(f"""
-                QLabel {{
-                    border-radius: 8px;
-                    padding: 2px;
-                }}
-            """)
-            self._attachments_layout.addWidget(img_label)
+        if not os.path.isfile(abs_path):
+            return
+
+        # Get image dimensions
+        pixmap = QPixmap(abs_path)
+        if pixmap.isNull():
+            return
+
+        # Scale to fit within max dimensions while preserving aspect ratio
+        # Max width ~600px to fit in message bubble, max height 300px
+        max_width = 600
+        max_height = 300
+
+        scaled_pixmap = pixmap
+        if pixmap.width() > max_width or pixmap.height() > max_height:
+            scaled_pixmap = pixmap.scaled(
+                max_width, max_height,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+
+        # Create a QLabel with the scaled pixmap
+        img_label = QLabel()
+        img_label.setPixmap(scaled_pixmap)
+        img_label.setStyleSheet("""
+            QLabel {
+                border-radius: 4px;
+                border: 1px solid #444;
+            }
+        """)
+        self._attachments_layout.addWidget(img_label)
 
     def _add_file_attachment(self, filepath: str):
         """Add a non-image file attachment widget."""

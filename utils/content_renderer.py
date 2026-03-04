@@ -488,6 +488,7 @@ class ContentRenderer:
             "agent_share_your_reasoning": "\U0001F4AD",
             "list_or_search_skills": "\U0001F3AF",
             "activate_skill": "\U0001F680",
+            "load_image_for_analysis": "\U0001F5BC",
         }
         icon = tool_icons.get(tool_lower, "\U0001F527")
 
@@ -506,6 +507,8 @@ class ContentRenderer:
             return ContentRenderer._render_reasoning_tool_call(args, icon)
         elif tool_lower in ("list_or_search_skills", "activate_skill"):
             return ContentRenderer._render_skill_tool_call(tool_name, args, icon)
+        elif tool_lower == "load_image_for_analysis":
+            return ContentRenderer._render_image_tool_call(args, icon)
         else:
             return ContentRenderer._render_generic_tool_call(tool_name, args, icon)
 
@@ -711,6 +714,12 @@ class ContentRenderer:
         reasoning = args.get("reasoning", "")
         next_steps = args.get("next_steps", [])
 
+        # Handle next_steps being a string (wrap in list) or None
+        if next_steps is None:
+            next_steps = []
+        elif isinstance(next_steps, str):
+            next_steps = [next_steps] if next_steps else []
+
         html_parts = [
             '<div class="tool-content">',
             f'<div class="reasoning-text">{escape_html(reasoning)}</div>',
@@ -720,12 +729,50 @@ class ContentRenderer:
             html_parts.append('<div class="next-steps">')
             html_parts.append('<div class="label">Next steps:</div>')
             html_parts.append('<ul>')
-            for step in next_steps[:5]:  # Limit to 5
+            # Show ALL steps - no truncation
+            for step in next_steps:
                 html_parts.append(f'<li>{escape_html(step)}</li>')
-            if len(next_steps) > 5:
-                html_parts.append(f'<li style="color:#a0a0a0">...and {len(next_steps) - 5} more</li>')
             html_parts.append('</ul>')
             html_parts.append('</div>')
+
+        html_parts.append('</div>')
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
+
+    @staticmethod
+    def _render_image_tool_call(args: dict, icon: str) -> str:
+        """Render load_image_for_analysis tool call with embedded image preview."""
+        image_path = args.get("image_path", "")
+
+        # Resolve to absolute path if relative
+        if image_path and not os.path.isabs(image_path):
+            abs_path = os.path.abspath(image_path)
+        else:
+            abs_path = image_path
+
+        html_parts = [
+            '<div class="tool-content">',
+            f'<div class="tool-param">'
+            f'<span class="param-value filepath">{escape_html(image_path)}</span>'
+            f'</div>',
+        ]
+
+        # Check if file exists and render the image
+        if abs_path and os.path.isfile(abs_path):
+            # Use file:// URL for local images
+            file_url = f"file://{abs_path}"
+            html_parts.append(
+                f'<div class="image-preview" style="margin-top: 8px;">'
+                f'<img src="{file_url}" alt="{escape_html(image_path)}" '
+                f'style="max-width: 100%; max-height: 300px; border-radius: 4px; '
+                f'border: 1px solid #444;"/>'
+                f'</div>'
+            )
+        else:
+            html_parts.append(
+                '<div class="tool-param" style="color: #a0a0a0; font-style: italic;">'
+                '(image not found or path invalid)'
+                '</div>'
+            )
 
         html_parts.append('</div>')
         return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())

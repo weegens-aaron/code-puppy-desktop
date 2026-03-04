@@ -13,7 +13,7 @@ from styles import COLORS
 # =============================================================================
 
 def _body_base(color: str = None, font_family: str = "'Segoe UI', sans-serif",
-               font_size: str = "14px", line_height: str = "1.5") -> str:
+               font_size: str = "14px", line_height: str = "1") -> str:
     """Base body styles used by all content types."""
     if color is None:
         color = COLORS.text_primary
