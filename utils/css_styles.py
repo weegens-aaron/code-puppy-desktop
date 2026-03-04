@@ -2,6 +2,7 @@
 
 Separates CSS concerns from rendering logic (SoC).
 Uses composable base styles to avoid repetition (DRY).
+All styles are generated dynamically to support theme changes.
 """
 
 from styles import COLORS
@@ -11,13 +12,11 @@ from styles import COLORS
 # Base style fragments (DRY - reusable components)
 # =============================================================================
 
-def _body_base(
-    color: str = COLORS.text_primary,
-    font_family: str = "'Segoe UI', sans-serif",
-    font_size: str = "14px",
-    line_height: str = "1.5"
-) -> str:
+def _body_base(color: str = None, font_family: str = "'Segoe UI', sans-serif",
+               font_size: str = "14px", line_height: str = "1.5") -> str:
     """Base body styles used by all content types."""
+    if color is None:
+        color = COLORS.text_primary
     return f"""
         body {{
             margin: 0;
@@ -29,8 +28,10 @@ def _body_base(
     """
 
 
-def _monospace_body(color: str = COLORS.text_primary) -> str:
+def _monospace_body(color: str = None) -> str:
     """Monospace body style for code/terminal content."""
+    if color is None:
+        color = COLORS.text_primary
     return _body_base(
         color=color,
         font_family="'Consolas', 'Monaco', monospace",
@@ -41,14 +42,14 @@ def _monospace_body(color: str = COLORS.text_primary) -> str:
 
 def _panel_header() -> str:
     """Common header style for tool output panels."""
-    return """
-        .panel-header {
+    return f"""
+        .panel-header {{
             padding: 8px 12px;
-            background-color: #1e3a5f;
+            background-color: {COLORS.bg_tertiary};
             border-radius: 6px 6px 0 0;
-        }
-        .panel-header .banner { color: white; font-weight: bold; }
-        .panel-header .icon { margin-right: 8px; }
+        }}
+        .panel-header .banner {{ color: {COLORS.text_primary}; font-weight: bold; }}
+        .panel-header .icon {{ margin-right: 8px; }}
     """
 
 
@@ -68,7 +69,7 @@ def _panel_meta() -> str:
     return f"""
         .panel-meta {{
             padding: 4px 12px;
-            background-color: #162a40;
+            background-color: {COLORS.bg_tertiary};
             color: {COLORS.text_secondary};
             font-size: 12px;
         }}
@@ -77,41 +78,48 @@ def _panel_meta() -> str:
 
 def _success_error() -> str:
     """Success/error color classes."""
-    return """
-        .success { color: #4ade80; }
-        .error { color: #f87171; }
+    return f"""
+        .success {{ color: {COLORS.accent_success}; }}
+        .error {{ color: {COLORS.accent_error}; }}
     """
 
 
 def _filepath_styles() -> str:
     """Common filepath styling."""
-    return """
-        .filepath { color: #60a5fa; }
-        .directory { color: #60a5fa; }
+    return f"""
+        .filepath {{ color: {COLORS.accent_primary}; }}
+        .directory {{ color: {COLORS.accent_primary}; }}
     """
 
 
 # =============================================================================
-# Composed CSS for each content type
+# Dynamic CSS generators for each content type
 # =============================================================================
 
-PLAIN_TEXT_CSS = _body_base()
+def get_plain_text_css() -> str:
+    return _body_base()
 
-THINKING_CSS = _monospace_body(color="#c4b99a")
 
-CODE_CSS = _monospace_body(color="#b0bec5") + """
-    pre {
+def get_thinking_css() -> str:
+    return _monospace_body(color=COLORS.text_secondary)
+
+
+def get_code_css() -> str:
+    return _monospace_body(color=COLORS.text_primary) + f"""
+    pre {{
         margin: 0;
         white-space: pre-wrap;
         word-wrap: break-word;
-    }
+    }}
 """
 
-MARKDOWN_CSS = _body_base(line_height="1.6") + f"""
+
+def get_markdown_css() -> str:
+    return _body_base(line_height="1.6") + f"""
     p {{ margin: 0 0 12px 0; }}
     p:last-child {{ margin-bottom: 0; }}
-    strong {{ color: #ffffff; }}
-    em {{ color: #b0b0b0; }}
+    strong {{ color: {COLORS.text_primary}; }}
+    em {{ color: {COLORS.text_secondary}; }}
     code {{
         background-color: {COLORS.bg_code};
         color: {COLORS.text_code};
@@ -133,15 +141,15 @@ MARKDOWN_CSS = _body_base(line_height="1.6") + f"""
         font-size: 13px;
         line-height: 1.4;
     }}
-    h1 {{ font-size: 1.4em; color: #ffffff; margin: 16px 0 8px 0; }}
-    h2 {{ font-size: 1.2em; color: #ffffff; margin: 14px 0 6px 0; }}
-    h3 {{ font-size: 1.1em; color: #ffffff; margin: 12px 0 4px 0; }}
+    h1 {{ font-size: 1.4em; color: {COLORS.text_primary}; margin: 16px 0 8px 0; }}
+    h2 {{ font-size: 1.2em; color: {COLORS.text_primary}; margin: 14px 0 6px 0; }}
+    h3 {{ font-size: 1.1em; color: {COLORS.text_primary}; margin: 12px 0 4px 0; }}
     ul, ol {{ margin: 8px 0; padding-left: 24px; }}
     li {{ margin: 4px 0; }}
-    a {{ color: {COLORS.accent_info}; text-decoration: none; }}
+    a {{ color: {COLORS.accent_primary}; text-decoration: none; }}
     a:hover {{ text-decoration: underline; }}
     blockquote {{
-        border-left: 3px solid {COLORS.accent_info};
+        border-left: 3px solid {COLORS.accent_primary};
         margin: 8px 0;
         padding: 4px 12px;
         color: {COLORS.text_secondary};
@@ -152,9 +160,11 @@ MARKDOWN_CSS = _body_base(line_height="1.6") + f"""
     hr {{ border: none; border-top: 1px solid {COLORS.border_subtle}; margin: 12px 0; }}
 """
 
-DIFF_CSS = _monospace_body() + _panel_header() + f"""
-    .panel-header .operation {{ color: #4fc3f7; font-weight: bold; }}
-    .panel-header .filepath {{ color: #60a5fa; }}
+
+def get_diff_css() -> str:
+    return _monospace_body() + _panel_header() + f"""
+    .panel-header .operation {{ color: {COLORS.accent_primary}; font-weight: bold; }}
+    .panel-header .filepath {{ color: {COLORS.accent_primary}; }}
     .diff-content {{
         background-color: {COLORS.bg_code};
         border-radius: 0 0 6px 6px;
@@ -181,13 +191,15 @@ DIFF_CSS = _monospace_body() + _panel_header() + f"""
     }}
 """
 
-SHELL_CSS = (
-    _monospace_body() +
-    _panel_header() +
-    _panel_meta() +
-    _success_error() +
-    f"""
-    .panel-header .command {{ color: #4fc3f7; }}
+
+def get_shell_css() -> str:
+    return (
+        _monospace_body() +
+        _panel_header() +
+        _panel_meta() +
+        _success_error() +
+        f"""
+    .panel-header .command {{ color: {COLORS.accent_primary}; }}
     .shell-output {{
         background-color: {COLORS.bg_code};
         border-radius: 0 0 6px 6px;
@@ -199,20 +211,22 @@ SHELL_CSS = (
         overflow-y: auto;
     }}
 """
-)
+    )
 
-FILE_LISTING_CSS = (
-    _body_base(font_size="13px", line_height="1.6") +
-    _panel_header() +
-    _panel_content() +
-    _filepath_styles() +
-    f"""
+
+def get_file_listing_css() -> str:
+    return (
+        _body_base(font_size="13px", line_height="1.6") +
+        _panel_header() +
+        _panel_content() +
+        _filepath_styles() +
+        f"""
     .file-entry {{
         padding: 2px 0;
     }}
     .file-entry .icon {{ margin-right: 6px; }}
     .file-entry.directory {{ font-weight: bold; }}
-    .file-entry.file {{ color: #4ade80; }}
+    .file-entry.file {{ color: {COLORS.text_primary}; }}
     .file-size {{ color: {COLORS.text_secondary}; font-size: 12px; }}
     .listing-summary {{
         padding: 8px 12px;
@@ -222,15 +236,17 @@ FILE_LISTING_CSS = (
         font-size: 12px;
     }}
 """
-)
+    )
 
-GREP_CSS = (
-    _monospace_body() +
-    _panel_header() +
-    _panel_content() +
-    _filepath_styles() +
-    f"""
-    .panel-header .search-term {{ color: #fbbf24; }}
+
+def get_grep_css() -> str:
+    return (
+        _monospace_body() +
+        _panel_header() +
+        _panel_content() +
+        _filepath_styles() +
+        f"""
+    .panel-header .search-term {{ color: {COLORS.accent_warning}; }}
     .grep-file {{
         color: {COLORS.text_secondary};
         padding: 8px 0 4px 0;
@@ -247,34 +263,37 @@ GREP_CSS = (
         display: inline-block;
     }}
     .grep-match .content {{ color: {COLORS.text_secondary}; }}
-    .grep-match .highlight {{ color: #fbbf24; font-weight: bold; }}
+    .grep-match .highlight {{ color: {COLORS.accent_warning}; font-weight: bold; }}
     .grep-summary {{
         padding: 8px 0 0 0;
         color: {COLORS.text_secondary};
         font-size: 12px;
     }}
 """
-)
+    )
 
-FILE_HEADER_CSS = (
-    _body_base(font_size="13px") +
-    f"""
+
+def get_file_header_css() -> str:
+    return (
+        _body_base(font_size="13px") +
+        f"""
     .file-header {{
         padding: 8px 12px;
-        background-color: #1e3a5f;
+        background-color: {COLORS.bg_tertiary};
         border-radius: 6px;
     }}
-    .file-header .banner {{ color: white; font-weight: bold; }}
-    .file-header .filepath {{ color: #60a5fa; }}
+    .file-header .banner {{ color: {COLORS.text_primary}; font-weight: bold; }}
+    .file-header .filepath {{ color: {COLORS.accent_primary}; }}
     .file-header .line-info {{ color: {COLORS.text_secondary}; }}
 """
-)
+    )
 
-# CSS for tool call display (no header - MessageWidget provides it)
-TOOL_CALL_CSS = (
-    _body_base(font_size="13px") +
-    _filepath_styles() +
-    f"""
+
+def get_tool_call_css() -> str:
+    return (
+        _body_base(font_size="13px") +
+        _filepath_styles() +
+        f"""
     .tool-content {{
         padding: 4px 0;
     }}
@@ -283,7 +302,7 @@ TOOL_CALL_CSS = (
         line-height: 1.4;
     }}
     .tool-param .param-name {{
-        color: #fbbf24;
+        color: {COLORS.accent_warning};
         font-weight: bold;
     }}
     .tool-param .param-value {{
@@ -301,7 +320,7 @@ TOOL_CALL_CSS = (
         padding: 8px;
         background-color: {COLORS.bg_secondary};
         border-radius: 4px;
-        border-left: 3px solid #4fc3f7;
+        border-left: 3px solid {COLORS.accent_primary};
     }}
     .tool-preview .label {{
         color: {COLORS.text_muted};
@@ -315,8 +334,8 @@ TOOL_CALL_CSS = (
         white-space: pre-wrap;
         word-wrap: break-word;
     }}
-    .tool-preview .old {{ color: #f87171; }}
-    .tool-preview .new {{ color: #4ade80; }}
+    .tool-preview .old {{ color: {COLORS.accent_error}; }}
+    .tool-preview .new {{ color: {COLORS.accent_success}; }}
     .tool-preview .arrow {{ color: {COLORS.text_muted}; margin: 0 8px; }}
     .reasoning-text {{
         color: {COLORS.text_secondary};
@@ -340,17 +359,18 @@ TOOL_CALL_CSS = (
         margin: 2px 0;
     }}
 """
-)
+    )
 
-# CSS for error display
-ERROR_CSS = (
-    _body_base(font_size="13px") +
-    f"""
+
+def get_error_css() -> str:
+    return (
+        _body_base(font_size="13px") +
+        f"""
     .error-container {{
         padding: 12px;
-        background-color: #3a1e1e;
+        background-color: {COLORS.role_error_bg};
         border-radius: 6px;
-        border-left: 4px solid #f87171;
+        border-left: 4px solid {COLORS.accent_error};
     }}
     .error-header {{
         display: flex;
@@ -362,7 +382,7 @@ ERROR_CSS = (
         margin-right: 8px;
     }}
     .error-title {{
-        color: #f87171;
+        color: {COLORS.accent_error};
         font-weight: bold;
         font-size: 14px;
     }}
@@ -377,20 +397,21 @@ ERROR_CSS = (
     .error-hint {{
         margin-top: 8px;
         padding-top: 8px;
-        border-top: 1px solid #5c2a2a;
+        border-top: 1px solid {COLORS.border_subtle};
         color: {COLORS.text_muted};
         font-size: 11px;
     }}
 """
-)
+    )
 
-# CSS for skill list output
-SKILL_LIST_CSS = (
-    _body_base(font_size="13px", line_height="1.6") +
-    _panel_header() +
-    _panel_content() +
-    f"""
-    .panel-header .search-term {{ color: #fbbf24; }}
+
+def get_skill_list_css() -> str:
+    return (
+        _body_base(font_size="13px", line_height="1.6") +
+        _panel_header() +
+        _panel_content() +
+        f"""
+    .panel-header .search-term {{ color: {COLORS.accent_warning}; }}
     .skill-list {{
         padding: 0;
     }}
@@ -406,7 +427,7 @@ SKILL_LIST_CSS = (
         background-color: {COLORS.bg_tertiary};
     }}
     .skill-name {{
-        color: #4ade80;
+        color: {COLORS.accent_primary};
         font-weight: bold;
         font-size: 14px;
     }}
@@ -422,7 +443,7 @@ SKILL_LIST_CSS = (
     .skill-tag {{
         display: inline-block;
         background-color: {COLORS.bg_tertiary};
-        color: #60a5fa;
+        color: {COLORS.accent_primary};
         padding: 2px 8px;
         border-radius: 12px;
         font-size: 11px;
@@ -446,29 +467,30 @@ SKILL_LIST_CSS = (
         text-align: center;
     }}
 """
-)
+    )
 
-# CSS for skill activation output
-SKILL_ACTIVATE_CSS = (
-    _body_base(font_size="13px", line_height="1.6") +
-    _panel_header() +
-    _panel_content() +
-    _success_error() +
-    f"""
+
+def get_skill_activate_css() -> str:
+    return (
+        _body_base(font_size="13px", line_height="1.6") +
+        _panel_header() +
+        _panel_content() +
+        _success_error() +
+        f"""
     .skill-activated {{
         padding: 12px;
     }}
     .skill-activated .skill-name {{
-        color: #4ade80;
+        color: {COLORS.accent_primary};
         font-weight: bold;
         font-size: 16px;
     }}
     .skill-activated .status {{
         margin-top: 8px;
         padding: 8px 12px;
-        background-color: #1e3a1e;
+        background-color: {COLORS.bg_tertiary};
         border-radius: 4px;
-        color: #4ade80;
+        color: {COLORS.accent_success};
     }}
     .skill-resources {{
         margin-top: 12px;
@@ -480,7 +502,7 @@ SKILL_ACTIVATE_CSS = (
     }}
     .skill-resources .resource {{
         padding: 4px 0;
-        color: #60a5fa;
+        color: {COLORS.accent_primary};
         font-size: 12px;
     }}
     .skill-content-preview {{
@@ -488,7 +510,7 @@ SKILL_ACTIVATE_CSS = (
         padding: 8px 12px;
         background-color: {COLORS.bg_secondary};
         border-radius: 4px;
-        border-left: 3px solid #4ade80;
+        border-left: 3px solid {COLORS.accent_primary};
         max-height: 200px;
         overflow-y: auto;
     }}
@@ -504,4 +526,72 @@ SKILL_ACTIVATE_CSS = (
         word-wrap: break-word;
     }}
 """
-)
+    )
+
+
+# =============================================================================
+# Backwards compatibility - these call the dynamic functions
+# =============================================================================
+
+# These are kept for backwards compatibility but now call functions
+# that generate CSS dynamically with current theme colors
+
+class _DynamicCSS:
+    """Proxy that generates CSS dynamically."""
+
+    @property
+    def PLAIN_TEXT_CSS(self):
+        return get_plain_text_css()
+
+    @property
+    def THINKING_CSS(self):
+        return get_thinking_css()
+
+    @property
+    def CODE_CSS(self):
+        return get_code_css()
+
+    @property
+    def MARKDOWN_CSS(self):
+        return get_markdown_css()
+
+    @property
+    def DIFF_CSS(self):
+        return get_diff_css()
+
+    @property
+    def SHELL_CSS(self):
+        return get_shell_css()
+
+    @property
+    def FILE_LISTING_CSS(self):
+        return get_file_listing_css()
+
+    @property
+    def GREP_CSS(self):
+        return get_grep_css()
+
+    @property
+    def FILE_HEADER_CSS(self):
+        return get_file_header_css()
+
+    @property
+    def TOOL_CALL_CSS(self):
+        return get_tool_call_css()
+
+    @property
+    def ERROR_CSS(self):
+        return get_error_css()
+
+    @property
+    def SKILL_LIST_CSS(self):
+        return get_skill_list_css()
+
+    @property
+    def SKILL_ACTIVATE_CSS(self):
+        return get_skill_activate_css()
+
+
+# Create singleton instance for backwards compatibility
+# Access via css_styles.css.PLAIN_TEXT_CSS etc., or use the functions directly
+css = _DynamicCSS()

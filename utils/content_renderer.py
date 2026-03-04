@@ -28,7 +28,7 @@ class ContentRenderer:
     def render_plain_text(text: str) -> str:
         """Render plain text with HTML escaping."""
         escaped = escape_html(text)
-        return wrap_html_with_css(escaped, css_styles.PLAIN_TEXT_CSS)
+        return wrap_html_with_css(escaped, css_styles.get_plain_text_css())
 
     @staticmethod
     def render_error(error_message: str, error_type: str = "Error") -> str:
@@ -76,13 +76,13 @@ class ContentRenderer:
                 {hint_html}
             </div>
         '''
-        return wrap_html_with_css(body, css_styles.ERROR_CSS)
+        return wrap_html_with_css(body, css_styles.get_error_css())
 
     @staticmethod
     def render_thinking(text: str) -> str:
         """Render thinking content (monospace)."""
         escaped = escape_html(text)
-        return wrap_html_with_css(escaped, css_styles.THINKING_CSS)
+        return wrap_html_with_css(escaped, css_styles.get_thinking_css())
 
     @staticmethod
     def render_json(text: str) -> str:
@@ -103,7 +103,7 @@ class ContentRenderer:
         except Exception:
             highlighted = escape_html(formatted)
 
-        return wrap_html_with_css(highlighted, css_styles.CODE_CSS)
+        return wrap_html_with_css(highlighted, css_styles.get_code_css())
 
     @staticmethod
     def render_markdown(text: str) -> str:
@@ -141,7 +141,7 @@ class ContentRenderer:
         except Exception:
             body = escape_html(text)
 
-        return wrap_html_with_css(body, css_styles.MARKDOWN_CSS)
+        return wrap_html_with_css(body, css_styles.get_markdown_css())
 
     @staticmethod
     def render_diff(diff_text: str, operation: str = "modify", filepath: str = "") -> str:
@@ -184,7 +184,7 @@ class ContentRenderer:
             html_parts.append('<div class="diff-line diff-context">-- no changes --</div>')
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.DIFF_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_diff_css())
 
     @staticmethod
     def render_shell_command(
@@ -222,7 +222,7 @@ class ContentRenderer:
         elif output:
             html_parts.append('<div class="panel-meta success">\u2713 Success</div>')
 
-        return wrap_html_with_css(''.join(html_parts), css_styles.SHELL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_shell_css())
 
     @staticmethod
     def render_file_listing(
@@ -276,7 +276,7 @@ class ContentRenderer:
             f'({format_size(total_size)} total)</div>'
         )
 
-        return wrap_html_with_css(''.join(html_parts), css_styles.FILE_LISTING_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_file_listing_css())
 
     @staticmethod
     def render_grep_results(
@@ -343,7 +343,7 @@ class ContentRenderer:
             )
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.GREP_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_grep_css())
 
     @staticmethod
     def render_file_header(path: str, line_info: str = "") -> str:
@@ -355,7 +355,7 @@ class ContentRenderer:
             f'\U0001F4C2 <span class="filepath">{escape_html(path)}</span>'
             f'{line_part}</div>'
         )
-        return wrap_html_with_css(body, css_styles.FILE_HEADER_CSS)
+        return wrap_html_with_css(body, css_styles.get_file_header_css())
 
     @staticmethod
     def render_tool_call(tool_name: str, tool_args: str | dict) -> str:
@@ -551,7 +551,7 @@ class ContentRenderer:
             )
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_shell_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -565,7 +565,7 @@ class ContentRenderer:
             f'</div>',
             '</div>'
         ]
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_read_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -588,7 +588,7 @@ class ContentRenderer:
             f'</div>',
             '</div>'
         ]
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_list_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -605,7 +605,7 @@ class ContentRenderer:
             f'</div>',
             '</div>'
         ]
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_search_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -625,7 +625,7 @@ class ContentRenderer:
             f'</div>',
             '</div>'
         ]
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_skill_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -665,7 +665,7 @@ class ContentRenderer:
                 )
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_reasoning_tool_call(args: dict, icon: str) -> str:
@@ -690,7 +690,7 @@ class ContentRenderer:
             html_parts.append('</div>')
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def _render_generic_tool_call(tool_name: str, args: dict, icon: str) -> str:
@@ -733,7 +733,7 @@ class ContentRenderer:
             )
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.TOOL_CALL_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
 
     @staticmethod
     def render_skill_list(
@@ -778,7 +778,7 @@ class ContentRenderer:
                 f'<div class="no-skills" style="color:#f87171;">\u26A0\uFE0F {escape_html(error)}</div>'
                 f'</div>'
             )
-            return wrap_html_with_css(''.join(html_parts), css_styles.SKILL_LIST_CSS)
+            return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_list_css())
 
         # No skills found
         if not skills:
@@ -788,7 +788,7 @@ class ContentRenderer:
                 f'<div class="no-skills">\U0001F50D {msg}</div>'
                 f'</div>'
             )
-            return wrap_html_with_css(''.join(html_parts), css_styles.SKILL_LIST_CSS)
+            return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_list_css())
 
         # Skill entries
         html_parts.append('<div class="skill-list">')
@@ -840,7 +840,7 @@ class ContentRenderer:
                 f'</div>'
             )
 
-        return wrap_html_with_css(''.join(html_parts), css_styles.SKILL_LIST_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_list_css())
 
     @staticmethod
     def render_skill_activate(
@@ -876,7 +876,7 @@ class ContentRenderer:
                 f'\u26A0\uFE0F {escape_html(error)}'
                 f'</div></div>'
             )
-            return wrap_html_with_css(''.join(html_parts), css_styles.SKILL_ACTIVATE_CSS)
+            return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_activate_css())
 
         html_parts.append('<div class="skill-activated">')
 
@@ -912,4 +912,4 @@ class ContentRenderer:
             )
 
         html_parts.append('</div>')
-        return wrap_html_with_css(''.join(html_parts), css_styles.SKILL_ACTIVATE_CSS)
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_activate_css())

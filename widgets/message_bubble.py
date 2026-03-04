@@ -1,4 +1,4 @@
-"""Message widget with markdown rendering."""
+"""Modern message widget with aligned chat bubbles."""
 
 import os
 
@@ -11,7 +11,9 @@ from PySide6.QtGui import QPixmap
 
 from models.data_types import Message, MessageRole, ToolOutputType
 from styles import (
-    COLORS, get_role_style, CONTENT_BROWSER_STYLE, COPY_BUTTON_STYLE
+    COLORS, get_role_style,
+    get_message_bubble_style, get_bubble_content_style,
+    get_theme_manager,
 )
 from utils.content_renderer import ContentRenderer
 from code_puppy.config import get_owner_name, get_puppy_name
@@ -27,10 +29,11 @@ def _default_assistant_name() -> str:
 
 
 class MessageWidget(QFrame):
-    """A full-width message widget with markdown rendering.
+    """A modern chat bubble message widget.
 
-    Displays messages with a colored header bar, role indicator,
-    and properly rendered markdown content.
+    User messages appear right-aligned with accent color.
+    Assistant messages appear left-aligned with secondary background.
+    Tool/thinking messages are centered with subtle styling.
     """
 
     copy_clicked = Signal(str)
@@ -43,12 +46,22 @@ class MessageWidget(QFrame):
         super().__init__(parent)
         self._message = message
         self._collapsed = False
-        self._collapsible = message.role in (
+        self._is_tool_message = message.role in (
             MessageRole.THINKING, MessageRole.TOOL_CALL, MessageRole.TOOL_OUTPUT
         )
+        self._is_user = message.role == MessageRole.USER
 
         self.setFrameShape(QFrame.Shape.NoFrame)
         self._setup_ui()
+        self._update_content()
+
+        # Listen for theme changes
+        self._theme_manager = get_theme_manager()
+        self._theme_manager.add_listener(self._on_theme_changed)
+
+    def _on_theme_changed(self, theme):
+        """Update styles when theme changes."""
+        self._apply_styles()
         self._update_content()
 
     def _get_role_config(self) -> tuple[str, str, str]:
@@ -63,68 +76,77 @@ class MessageWidget(QFrame):
         if role == MessageRole.USER:
             return self.get_user_name(), style.text_color, style.background_color
         elif role == MessageRole.THINKING:
-            return "Thinking", style.text_color, style.background_color
+            return "💭 Thinking", style.text_color, style.background_color
         elif role == MessageRole.TOOL_CALL:
             tool_name = self._message.metadata.get("tool_name", "Tool")
-            return tool_name, style.text_color, style.background_color
+            return f"⚡ {tool_name}", style.text_color, style.background_color
         elif role == MessageRole.TOOL_OUTPUT:
-            # Get tool name from metadata for display
-            tool_name = self._message.metadata.get("tool_name", "Tool Output")
-            return tool_name, style.text_color, style.background_color
+            tool_name = self._message.metadata.get("tool_name", "Output")
+            return f"📤 {tool_name}", style.text_color, style.background_color
         elif role == MessageRole.ERROR:
             error_type = self._message.metadata.get("error_type", "Error")
-            return error_type, style.text_color, style.background_color
+            return f"❌ {error_type}", style.text_color, style.background_color
         else:
             return self.get_assistant_name(), style.text_color, style.background_color
 
     def _setup_ui(self):
+        """Set up the message card UI."""
+        # Apply style directly to this frame (no nested frame)
+        self._apply_styles()
+
+        # Main layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(4)
 
         role_text, role_color, bg_color = self._get_role_config()
 
-        # Header bar with role and copy button
-        self._header = QFrame()
-        self._header.setFixedHeight(32)
-        self._header.setStyleSheet(f"background-color: {bg_color};")
-
-        header_layout = QHBoxLayout(self._header)
-        header_layout.setContentsMargins(16, 4, 16, 4)
+        # Header row
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # Collapse indicator for collapsible messages
-        if self._collapsible:
+        # For tool messages, add collapse indicator
+        if self._is_tool_message:
             self._collapse_indicator = QLabel("▼")
             self._collapse_indicator.setStyleSheet(f"color: {role_color}; font-size: 10px;")
+            self._collapse_indicator.setFixedWidth(12)
             header_layout.addWidget(self._collapse_indicator)
-            self._header.setCursor(Qt.CursorShape.PointingHandCursor)
-            self._header.mousePressEvent = self._on_header_click
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # Role label
-        role_label = QLabel(role_text)
-        role_label.setStyleSheet(f"color: {role_color}; font-weight: bold; font-size: 13px;")
-        header_layout.addWidget(role_label)
+        self._role_label = QLabel(role_text)
+        self._role_label.setStyleSheet(f"color: {role_color}; font-size: 12px; font-weight: bold;")
+        header_layout.addWidget(self._role_label)
 
         header_layout.addStretch()
 
-        # Copy button (icon)
-        copy_btn = QPushButton("📋")
-        copy_btn.setFixedSize(24, 22)
-        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        copy_btn.setToolTip("Copy to clipboard")
-        copy_btn.setStyleSheet(COPY_BUTTON_STYLE)
-        copy_btn.clicked.connect(self._on_copy)
-        self._copy_btn = copy_btn
-        header_layout.addWidget(copy_btn)
+        # Copy button
+        self._copy_btn = QPushButton("📋")
+        self._copy_btn.setFixedSize(24, 24)
+        self._copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._copy_btn.setToolTip("Copy")
+        self._copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 4px;
+            }
+        """)
+        self._copy_btn.clicked.connect(self._on_copy)
+        header_layout.addWidget(self._copy_btn)
 
-        layout.addWidget(self._header)
+        layout.addLayout(header_layout)
 
         # Content area
         self._content = QTextBrowser()
         self._content.setOpenExternalLinks(True)
         self._content.setFrameShape(QFrame.Shape.NoFrame)
-        self._content.setStyleSheet(CONTENT_BROWSER_STYLE)
+        self._content.setStyleSheet(get_bubble_content_style(self._is_user))
         self._content.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._content.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -138,18 +160,23 @@ class MessageWidget(QFrame):
 
         # Attachments area (for images)
         self._attachments_container = QWidget()
-        self._attachments_container.setStyleSheet(f"background-color: {COLORS.bg_content};")
+        self._attachments_container.setStyleSheet("background-color: transparent;")
         self._attachments_layout = QVBoxLayout(self._attachments_container)
-        self._attachments_layout.setContentsMargins(16, 0, 16, 12)
+        self._attachments_layout.setContentsMargins(0, 0, 0, 8)
         self._attachments_layout.setSpacing(8)
         self._attachments_container.setVisible(False)
         layout.addWidget(self._attachments_container)
 
-        # Bottom divider
-        divider = QFrame()
-        divider.setFixedHeight(1)
-        divider.setStyleSheet(f"background-color: {COLORS.border_subtle};")
-        layout.addWidget(divider)
+        # Connect click handler for tool messages
+        if self._is_tool_message:
+            self.mousePressEvent = self._on_header_click
+
+    def _apply_styles(self):
+        """Apply current theme styles to the message card."""
+        self.setStyleSheet(get_message_bubble_style(
+            is_user=self._is_user,
+            is_tool=self._is_tool_message
+        ))
 
     def _update_content(self):
         """Update the displayed content with proper rendering."""
@@ -181,15 +208,7 @@ class MessageWidget(QFrame):
         self._render_attachments()
 
     def _render_tool_output(self, content: str, metadata: dict) -> str:
-        """Render tool output based on output_type in metadata.
-
-        Args:
-            content: The raw content
-            metadata: Message metadata containing output_type and other data
-
-        Returns:
-            HTML string with styled content
-        """
+        """Render tool output based on output_type in metadata."""
         output_type = metadata.get("output_type", ToolOutputType.JSON.value)
 
         if output_type == ToolOutputType.DIFF.value:
@@ -243,7 +262,6 @@ class MessageWidget(QFrame):
                 error=metadata.get("error")
             )
         else:
-            # Default to JSON rendering
             return ContentRenderer.render_json(content)
 
     def _render_attachments(self):
@@ -276,8 +294,7 @@ class MessageWidget(QFrame):
         """Add an image attachment widget."""
         pixmap = QPixmap(filepath)
         if not pixmap.isNull():
-            # Scale to max width while maintaining aspect ratio
-            max_width = 400
+            max_width = 300
             if pixmap.width() > max_width:
                 pixmap = pixmap.scaledToWidth(
                     max_width, Qt.TransformationMode.SmoothTransformation
@@ -287,8 +304,7 @@ class MessageWidget(QFrame):
             img_label.setPixmap(pixmap)
             img_label.setStyleSheet(f"""
                 QLabel {{
-                    border: 1px solid {COLORS.border_subtle};
-                    border-radius: 4px;
+                    border-radius: 8px;
                     padding: 2px;
                 }}
             """)
@@ -304,8 +320,8 @@ class MessageWidget(QFrame):
         """Adjust content height to fit text."""
         doc = self._content.document()
         doc.setTextWidth(self._content.viewport().width())
-        height = int(doc.size().height()) + 24  # Add padding
-        self._content.setFixedHeight(max(40, height))
+        height = int(doc.size().height()) + 16
+        self._content.setFixedHeight(max(32, height))
 
     def update_content(self, content: str):
         """Update message content (for streaming)."""
@@ -322,10 +338,11 @@ class MessageWidget(QFrame):
         QTimer.singleShot(1500, lambda: self._copy_btn.setText("📋"))
 
     def _on_header_click(self, event):
-        """Toggle collapse state for collapsible messages."""
+        """Toggle collapse state for tool messages."""
         self._collapsed = not self._collapsed
         self._content.setVisible(not self._collapsed)
-        self._collapse_indicator.setText("▶" if self._collapsed else "▼")
+        if hasattr(self, '_collapse_indicator'):
+            self._collapse_indicator.setText("▶" if self._collapsed else "▼")
 
     @property
     def message(self) -> Message:
@@ -335,6 +352,14 @@ class MessageWidget(QFrame):
         """Handle resize to reflow content."""
         super().resizeEvent(event)
         self._adjust_height()
+
+    def __del__(self):
+        """Clean up theme listener."""
+        try:
+            if hasattr(self, '_theme_manager'):
+                self._theme_manager.remove_listener(self._on_theme_changed)
+        except Exception:
+            pass
 
 
 # Alias for backwards compatibility

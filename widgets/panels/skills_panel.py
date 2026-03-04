@@ -1,58 +1,137 @@
 """Skills management panel for the sidebar."""
 
+import os
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
-    QLabel, QPushButton, QTextEdit, QFrame, QSplitter, QCheckBox,
+    QLabel, QPushButton, QTextEdit, QFrame, QSplitter,
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, button_style
+from styles import COLORS, button_style, get_theme_manager
 
-# Try to import agent_skills - may not be available in all installations
-SKILLS_AVAILABLE = False
-try:
-    from code_puppy.plugins.agent_skills.config import (
-        get_disabled_skills,
-        get_skills_enabled,
-        set_skill_disabled,
-        set_skills_enabled,
+
+@dataclass
+class SkillInfo:
+    """Information about a discovered skill."""
+    name: str
+    path: Path
+    description: str = ""
+    license: str = ""
+    content_preview: str = ""
+
+
+def get_skills_directory() -> Path:
+    """Get the skills directory path."""
+    return Path.home() / ".code_puppy" / "skills"
+
+
+def discover_skills() -> list[SkillInfo]:
+    """Discover all skills in the skills directory."""
+    skills_dir = get_skills_directory()
+    skills = []
+
+    if not skills_dir.exists():
+        return skills
+
+    for item in skills_dir.iterdir():
+        if item.is_dir():
+            skill_md = item / "SKILL.md"
+            if skill_md.exists():
+                skill_info = parse_skill_file(skill_md)
+                if skill_info:
+                    skills.append(skill_info)
+        elif item.suffix == ".skill" and item.is_file():
+            # Single-file skill
+            skill_info = parse_skill_file(item)
+            if skill_info:
+                skills.append(skill_info)
+
+    return sorted(skills, key=lambda s: s.name.lower())
+
+
+def parse_skill_file(path: Path) -> Optional[SkillInfo]:
+    """Parse a SKILL.md file to extract metadata."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+    # Extract YAML frontmatter
+    name = path.parent.name if path.name == "SKILL.md" else path.stem
+    description = ""
+    license_info = ""
+
+    # Check for YAML frontmatter
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            content_body = parts[2]
+
+            # Parse simple YAML
+            for line in frontmatter.strip().split("\n"):
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    key = key.strip().lower()
+                    value = value.strip()
+                    if key == "name":
+                        name = value
+                    elif key == "description":
+                        description = value
+                    elif key == "license":
+                        license_info = value
+        else:
+            content_body = content
+    else:
+        content_body = content
+
+    # Get content preview (first ~200 chars of actual content)
+    preview_lines = []
+    for line in content_body.strip().split("\n"):
+        line = line.strip()
+        if line and not line.startswith("#"):
+            preview_lines.append(line)
+            if len(" ".join(preview_lines)) > 200:
+                break
+    content_preview = " ".join(preview_lines)[:200]
+    if len(content_preview) == 200:
+        content_preview += "..."
+
+    return SkillInfo(
+        name=name,
+        path=path.parent if path.name == "SKILL.md" else path,
+        description=description,
+        license=license_info,
+        content_preview=content_preview,
     )
-    from code_puppy.plugins.agent_skills.discovery import (
-        discover_skills,
-        refresh_skill_cache,
-    )
-    from code_puppy.plugins.agent_skills.metadata import (
-        parse_skill_metadata,
-        get_skill_resources,
-    )
-    SKILLS_AVAILABLE = True
-except ImportError:
-    # Provide stub functions if agent_skills is not available
-    def get_disabled_skills(): return set()
-    def get_skills_enabled(): return False
-    def set_skill_disabled(name, disabled): pass
-    def set_skills_enabled(enabled): pass
-    def discover_skills(): return []
-    def refresh_skill_cache(): pass
-    def parse_skill_metadata(path): return None
-    def get_skill_resources(path): return []
 
 
 class SkillsPanel(QWidget):
-    """Panel for managing agent skills."""
+    """Panel for viewing available skills."""
 
     skills_changed = Signal()  # Emits when skills are modified
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._skills = []
-        self._disabled_skills = set()
-        self._skills_enabled = True
+        self._skills: list[SkillInfo] = []
         self._setup_ui()
         self._load_skills()
 
-    def _setup_ui(self):
-        """Set up the panel UI."""
+        # Theme listener
+        self._theme_manager = get_theme_manager()
+        self._theme_manager.add_listener(self._on_theme_changed)
+
+    def _on_theme_changed(self, theme):
+        """Update styles when theme changes."""
+        self._apply_styles()
+
+    def _apply_styles(self):
+        """Apply current theme styles."""
         self.setStyleSheet(f"""
             QWidget {{
                 background-color: {COLORS.bg_primary};
@@ -73,14 +152,14 @@ class SkillsPanel(QWidget):
                 background-color: {COLORS.bg_secondary};
                 color: {COLORS.text_primary};
                 border: 1px solid {COLORS.border_subtle};
-                border-radius: 4px;
+                border-radius: 8px;
                 padding: 4px;
                 outline: none;
             }}
             QListWidget::item {{
-                padding: 6px;
-                border-radius: 4px;
-                margin: 1px 0;
+                padding: 8px 12px;
+                border-radius: 6px;
+                margin: 2px 0;
             }}
             QListWidget::item:selected {{
                 background-color: {COLORS.accent_primary};
@@ -93,71 +172,78 @@ class SkillsPanel(QWidget):
                 background-color: {COLORS.bg_secondary};
                 color: {COLORS.text_primary};
                 border: 1px solid {COLORS.border_subtle};
-                border-radius: 4px;
-                padding: 8px;
+                border-radius: 8px;
+                padding: 12px;
             }}
             QLabel {{
                 color: {COLORS.text_primary};
                 background-color: transparent;
             }}
-            QCheckBox {{
-                color: {COLORS.text_primary};
-                spacing: 6px;
-            }}
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                border-radius: 3px;
-                border: 2px solid {COLORS.border_default};
-                background-color: {COLORS.bg_secondary};
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: {COLORS.accent_primary};
-                border-color: {COLORS.accent_primary};
-            }}
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+    def _setup_ui(self):
+        """Set up the panel UI."""
+        self._apply_styles()
 
-        # Header with toggle and refresh
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+
+        # Header
         header = QHBoxLayout()
 
-        self._skills_toggle = QCheckBox("Enabled")
-        self._skills_toggle.setStyleSheet(f"font-weight: bold; font-size: 12px;")
-        self._skills_toggle.stateChanged.connect(self._on_toggle_skills_system)
-        header.addWidget(self._skills_toggle)
+        title = QLabel("Skills")
+        title.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {COLORS.text_primary};")
+        header.addWidget(title)
 
         header.addStretch()
 
-        refresh_btn = QPushButton("\u21bb")
-        refresh_btn.setFixedSize(28, 28)
-        refresh_btn.setToolTip("Refresh skills")
-        refresh_btn.setStyleSheet("""
-            QPushButton {
+        # Open folder button
+        folder_btn = QPushButton("📂")
+        folder_btn.setFixedSize(28, 28)
+        folder_btn.setToolTip("Open skills folder")
+        folder_btn.setStyleSheet(f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
                 font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS.bg_tertiary};
                 border-radius: 4px;
-            }
+            }}
+        """)
+        folder_btn.clicked.connect(self._on_open_folder)
+        header.addWidget(folder_btn)
+
+        # Refresh button
+        refresh_btn = QPushButton("↻")
+        refresh_btn.setFixedSize(28, 28)
+        refresh_btn.setToolTip("Refresh skills")
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS.bg_tertiary};
+                border-radius: 4px;
+            }}
         """)
         refresh_btn.clicked.connect(self._on_refresh)
         header.addWidget(refresh_btn)
 
         layout.addLayout(header)
 
-        # Splitter for list and preview (vertical for sidebar)
+        # Splitter for list and preview
         splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Skills list
         list_widget = QFrame()
         list_layout = QVBoxLayout(list_widget)
         list_layout.setContentsMargins(0, 0, 0, 0)
-        list_layout.setSpacing(2)
+        list_layout.setSpacing(4)
 
         list_label = QLabel("Available Skills")
         list_label.setStyleSheet(f"font-size: 11px; color: {COLORS.text_secondary};")
@@ -165,7 +251,6 @@ class SkillsPanel(QWidget):
 
         self._skills_list = QListWidget()
         self._skills_list.currentItemChanged.connect(self._on_selection_changed)
-        self._skills_list.itemDoubleClicked.connect(self._on_toggle_skill)
         list_layout.addWidget(self._skills_list)
 
         splitter.addWidget(list_widget)
@@ -174,7 +259,7 @@ class SkillsPanel(QWidget):
         details_widget = QFrame()
         details_layout = QVBoxLayout(details_widget)
         details_layout.setContentsMargins(0, 0, 0, 0)
-        details_layout.setSpacing(2)
+        details_layout.setSpacing(4)
 
         details_label = QLabel("Details")
         details_label.setStyleSheet(f"font-size: 11px; color: {COLORS.text_secondary};")
@@ -189,82 +274,38 @@ class SkillsPanel(QWidget):
 
         layout.addWidget(splitter)
 
-        # Toggle button
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 4, 0, 0)
-
-        self._toggle_btn = QPushButton("Toggle Skill")
-        self._toggle_btn.setStyleSheet(button_style(
-            bg_color=COLORS.bg_tertiary,
-            text_color=COLORS.text_primary,
-        ))
-        self._toggle_btn.clicked.connect(self._on_toggle_skill)
-        button_layout.addWidget(self._toggle_btn)
-
-        layout.addLayout(button_layout)
-
     def _load_skills(self):
         """Load available skills into the list."""
         self._skills_list.clear()
 
-        # Get current state
-        self._skills_enabled = get_skills_enabled()
-        self._disabled_skills = get_disabled_skills()
-
-        # Update toggle
-        self._skills_toggle.setChecked(self._skills_enabled)
-
         # Discover skills
         try:
             self._skills = discover_skills()
-        except Exception:
+        except Exception as e:
             self._skills = []
+            self._details_text.setHtml(f"""
+                <div style="color: {COLORS.accent_error};">
+                    Error loading skills: {str(e)}
+                </div>
+            """)
+            return
 
         if not self._skills:
             item = QListWidgetItem("No skills found")
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            item.setForeground(Qt.GlobalColor.gray)
             self._skills_list.addItem(item)
             self._details_text.setHtml(self._render_no_skills_help())
             return
 
-        # Sort by name
-        self._skills.sort(key=lambda s: s.name.lower())
-
         for skill in self._skills:
             item = QListWidgetItem()
-
-            # Get metadata for display name
-            metadata = self._get_skill_metadata(skill)
-            display_name = metadata.name if metadata else skill.name
-
-            # Check if disabled
-            skill_name = metadata.name if metadata else skill.name
-            is_disabled = skill_name in self._disabled_skills
-
-            # Format display
-            if is_disabled:
-                item.setText(f"\u2717 {display_name}")
-                item.setForeground(Qt.GlobalColor.red)
-            else:
-                item.setText(f"\u2713 {display_name}")
-                item.setForeground(Qt.GlobalColor.green)
-
-            # Store data
+            item.setText(f"⚡ {skill.name}")
             item.setData(Qt.ItemDataRole.UserRole, skill)
-            item.setData(Qt.ItemDataRole.UserRole + 1, metadata)
             self._skills_list.addItem(item)
 
         # Select first
         if self._skills_list.count() > 0:
             self._skills_list.setCurrentRow(0)
-
-    def _get_skill_metadata(self, skill):
-        """Get metadata for a skill."""
-        try:
-            return parse_skill_metadata(skill.path)
-        except Exception:
-            return None
 
     def _on_selection_changed(self, current, previous):
         """Handle selection change in skills list."""
@@ -272,56 +313,40 @@ class SkillsPanel(QWidget):
             return
 
         skill = current.data(Qt.ItemDataRole.UserRole)
-        metadata = current.data(Qt.ItemDataRole.UserRole + 1)
-
         if not skill:
             return
 
-        self._details_text.setHtml(self._render_skill_details(skill, metadata))
+        self._details_text.setHtml(self._render_skill_details(skill))
 
-    def _render_skill_details(self, skill, metadata) -> str:
+    def _render_skill_details(self, skill: SkillInfo) -> str:
         """Render skill details as HTML."""
-        skill_name = metadata.name if metadata else skill.name
-        is_disabled = skill_name in self._disabled_skills
-
-        status_color = "#f87171" if is_disabled else "#4ade80"
-        status_text = "Disabled" if is_disabled else "Enabled"
-
         html = f"""
         <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary};">
             <h3 style="color: {COLORS.accent_info}; margin: 0 0 8px 0; font-size: 14px;">
-                {skill_name}
+                ⚡ {skill.name}
             </h3>
-            <p style="margin: 4px 0;">
-                <b>Status:</b>
-                <span style="color: {status_color};">{status_text}</span>
-            </p>
         """
 
-        if metadata:
-            if metadata.description:
-                html += f"""
-                <p style="margin: 8px 0; color: {COLORS.text_secondary}; font-size: 12px;">
-                    {metadata.description}
-                </p>
-                """
+        if skill.description:
+            html += f"""
+            <p style="margin: 8px 0; color: {COLORS.text_secondary}; font-size: 12px;">
+                {skill.description}
+            </p>
+            """
 
-            if metadata.tags:
-                tags_html = " ".join(
-                    f'<span style="background-color: {COLORS.bg_tertiary}; '
-                    f'color: #60a5fa; padding: 1px 6px; border-radius: 8px; '
-                    f'font-size: 10px;">{tag}</span>'
-                    for tag in metadata.tags[:5]
-                )
-                html += f"""
-                <p style="margin: 4px 0;">
-                    {tags_html}
-                </p>
-                """
+        if skill.content_preview:
+            html += f"""
+            <p style="margin: 12px 0 4px 0; color: {COLORS.text_muted}; font-size: 11px; font-weight: bold;">
+                Preview:
+            </p>
+            <p style="margin: 0; color: {COLORS.text_secondary}; font-size: 11px; font-style: italic;">
+                {skill.content_preview}
+            </p>
+            """
 
-        html += """
-        <p style="margin-top: 12px; color: #a0a0a0; font-size: 11px;">
-            Double-click to toggle.
+        html += f"""
+        <p style="margin-top: 16px; color: {COLORS.text_muted}; font-size: 10px;">
+            📁 {skill.path}
         </p>
         </div>
         """
@@ -330,65 +355,53 @@ class SkillsPanel(QWidget):
 
     def _render_no_skills_help(self) -> str:
         """Render help text when no skills are found."""
-        if not SKILLS_AVAILABLE:
-            return f"""
-            <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
-                <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">Skills Unavailable</h3>
-                <p style="color: {COLORS.text_secondary}; font-size: 12px;">
-                    The agent_skills plugin is not installed.
-                </p>
-                <p style="color: {COLORS.text_muted}; font-size: 11px; margin-top: 8px;">
-                    Skills management requires code_puppy.plugins.agent_skills
-                </p>
-            </div>
-            """
+        skills_dir = get_skills_directory()
         return f"""
         <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
-            <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">No Skills</h3>
+            <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">No Skills Found</h3>
             <p style="color: {COLORS.text_secondary}; font-size: 12px;">
-                Skills extend agent capabilities.
+                Skills extend agent capabilities with specialized knowledge.
+            </p>
+            <p style="color: {COLORS.text_muted}; font-size: 11px; margin-top: 12px;">
+                Create skills in:<br/>
+                <code style="background: {COLORS.bg_tertiary}; padding: 2px 6px; border-radius: 3px;">
+                    {skills_dir}
+                </code>
             </p>
             <p style="color: {COLORS.text_muted}; font-size: 11px; margin-top: 8px;">
-                Create in ~/.code_puppy/skills/
+                Each skill needs a SKILL.md file with YAML frontmatter.
             </p>
         </div>
         """
 
-    def _on_toggle_skill(self, item=None):
-        """Toggle the enabled/disabled state of the selected skill."""
-        current = self._skills_list.currentItem()
-        if not current:
-            return
+    def _on_open_folder(self):
+        """Open the skills folder in file explorer."""
+        import subprocess
+        import sys
 
-        skill = current.data(Qt.ItemDataRole.UserRole)
-        metadata = current.data(Qt.ItemDataRole.UserRole + 1)
+        skills_dir = get_skills_directory()
+        skills_dir.mkdir(parents=True, exist_ok=True)
 
-        if not skill:
-            return
-
-        skill_name = metadata.name if metadata else skill.name
-        is_disabled = skill_name in self._disabled_skills
-
-        # Toggle
-        set_skill_disabled(skill_name, not is_disabled)
-        refresh_skill_cache()
-
-        # Reload and emit signal
-        self._load_skills()
-        self.skills_changed.emit()
-
-    def _on_toggle_skills_system(self, state):
-        """Toggle the entire skills system."""
-        enabled = state == Qt.CheckState.Checked.value
-        set_skills_enabled(enabled)
-        self._skills_enabled = enabled
-        self.skills_changed.emit()
+        if sys.platform == "win32":
+            os.startfile(str(skills_dir))
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(skills_dir)])
+        else:
+            subprocess.run(["xdg-open", str(skills_dir)])
 
     def _on_refresh(self):
         """Refresh the skills list."""
-        refresh_skill_cache()
         self._load_skills()
+        self.skills_changed.emit()
 
     def refresh(self):
         """Refresh the skills list."""
         self._on_refresh()
+
+    def __del__(self):
+        """Clean up theme listener."""
+        try:
+            if hasattr(self, '_theme_manager'):
+                self._theme_manager.remove_listener(self._on_theme_changed)
+        except Exception:
+            pass

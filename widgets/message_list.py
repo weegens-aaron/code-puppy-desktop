@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from models.message_model import MessageModel
 from models.data_types import Message
 from widgets.message_bubble import MessageWidget
-from styles import COLORS, SCROLL_AREA_STYLE
+from styles import COLORS, SCROLL_AREA_STYLE, get_theme_manager
 
 
 class MessageListView(QScrollArea):
@@ -30,14 +30,14 @@ class MessageListView(QScrollArea):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setFrameShape(QFrame.Shape.NoFrame)
 
-        self.setStyleSheet(SCROLL_AREA_STYLE)
+        self._apply_styles()
 
         # Container for messages
         self._container = QWidget()
         self._container.setStyleSheet(f"background-color: {COLORS.bg_primary};")
         self._layout = QVBoxLayout(self._container)
-        self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(0)
+        self._layout.setContentsMargins(8, 16, 8, 16)
+        self._layout.setSpacing(8)
         self._layout.addStretch()
 
         self.setWidget(self._container)
@@ -51,6 +51,19 @@ class MessageListView(QScrollArea):
 
         # Track user scrolling to manage auto-scroll
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
+
+        # Theme listener
+        self._theme_manager = get_theme_manager()
+        self._theme_manager.add_listener(self._on_theme_changed)
+
+    def _apply_styles(self):
+        """Apply current theme styles."""
+        self.setStyleSheet(SCROLL_AREA_STYLE)
+
+    def _on_theme_changed(self, theme):
+        """Update styles when theme changes."""
+        self._apply_styles()
+        self._container.setStyleSheet(f"background-color: {COLORS.bg_primary};")
 
     def _on_message_added(self, row: int):
         """Add widget for new message."""
@@ -121,3 +134,11 @@ class MessageListView(QScrollArea):
         self._model.clear()
         self._clear_widgets()
         self._auto_scroll = True  # Reset auto-scroll on clear
+
+    def __del__(self):
+        """Clean up theme listener."""
+        try:
+            if hasattr(self, '_theme_manager'):
+                self._theme_manager.remove_listener(self._on_theme_changed)
+        except Exception:
+            pass

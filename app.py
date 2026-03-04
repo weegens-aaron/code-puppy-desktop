@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, QTimer, QElapsedTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
 from widgets.message_list import MessageListView
-from widgets.sidebar_tabs import SidebarTabs
+from widgets.collapsible_sidebar import CollapsibleSidebar
 from models.data_types import Message, MessageRole, ToolOutputType
 from services.agent_bridge import AgentBridge
 from windows.dialogs.settings_dialog import SettingsDialog
@@ -26,6 +26,9 @@ from styles import (
     get_attachment_chip_style, get_attachment_label_style,
     get_attachment_remove_style, get_status_label_style,
     get_status_activity_style, get_status_separator_style,
+    get_modern_input_container_style, get_modern_input_field_style,
+    get_modern_send_button_style, get_modern_attach_button_style,
+    get_modern_cancel_button_style,
 )
 from code_puppy.config import get_owner_name, get_puppy_name
 from code_puppy.agents import get_current_agent
@@ -126,10 +129,8 @@ class CodePuppyApp(QMainWindow):
         # Main splitter for sidebar and chat
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Tabbed sidebar (Files, Agents, Models, Skills, MCP)
-        self.sidebar = SidebarTabs(os.getcwd())
-        self.sidebar.setMinimumWidth(200)
-        self.sidebar.setMaximumWidth(450)
+        # Collapsible sidebar (Files, Sessions, Agents, Models, Skills, MCP)
+        self.sidebar = CollapsibleSidebar(os.getcwd())
         # Connect file tree signals
         self.sidebar.file_attached.connect(self._on_file_attached)
         self.sidebar.file_selected.connect(self._on_file_selected)
@@ -165,55 +166,62 @@ class CodePuppyApp(QMainWindow):
         self.setCentralWidget(central)
 
     def _create_input_area(self) -> QWidget:
-        """Create the message input area."""
+        """Create the modern message input area."""
         container = QWidget()
-        container.setStyleSheet(f"QWidget {{ background-color: {COLORS.bg_secondary}; }}")
+        container.setStyleSheet(get_modern_input_container_style())
 
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(16, 12, 16, 16)
         layout.setSpacing(8)
 
-        # Attachments display
+        # Attachments display (chips above input)
         self._attachments_widget = QWidget()
         self._attachments_layout = QHBoxLayout(self._attachments_widget)
-        self._attachments_layout.setContentsMargins(0, 0, 0, 0)
-        self._attachments_layout.setSpacing(4)
+        self._attachments_layout.setContentsMargins(8, 0, 8, 0)
+        self._attachments_layout.setSpacing(8)
         self._attachments_widget.setVisible(False)
         layout.addWidget(self._attachments_widget)
 
-        # Text input
+        # Input row
+        input_row = QHBoxLayout()
+        input_row.setSpacing(8)
+
+        # Text input (pill-shaped)
         self.input_field = QTextEdit()
-        self.input_field.setPlaceholderText("Type a message... (Ctrl+Enter to send)")
+        self.input_field.setPlaceholderText("Message... (Ctrl+Enter to send)")
+        self.input_field.setMinimumHeight(44)
         self.input_field.setMaximumHeight(120)
-        self.input_field.setStyleSheet(input_style())
-        layout.addWidget(self.input_field)
+        self.input_field.setStyleSheet(get_modern_input_field_style())
+        input_row.addWidget(self.input_field, stretch=1)
 
-        # Button row
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(8)
-
-        # Attach button
-        self.attach_btn = QPushButton("Attach")
-        self.attach_btn.setStyleSheet(get_attach_button_style())
-        self.attach_btn.clicked.connect(self._on_attach)
-        button_layout.addWidget(self.attach_btn)
-
-        # Cancel button (hidden by default)
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet(get_cancel_button_style())
-        self.cancel_btn.clicked.connect(self._on_cancel)
-        self.cancel_btn.setVisible(False)
-        button_layout.addWidget(self.cancel_btn)
-
-        button_layout.addStretch()
+        # Button column (Send, Cancel, Attach)
+        button_column = QVBoxLayout()
+        button_column.setSpacing(4)
 
         # Send button
         self.send_btn = QPushButton("Send")
         self.send_btn.setStyleSheet(get_send_button_style())
+        self.send_btn.setToolTip("Send message (Ctrl+Enter)")
         self.send_btn.clicked.connect(self._on_send)
-        button_layout.addWidget(self.send_btn)
+        button_column.addWidget(self.send_btn)
 
-        layout.addLayout(button_layout)
+        # Cancel button (always visible, disabled when not processing)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setStyleSheet(get_cancel_button_style())
+        self.cancel_btn.setEnabled(False)
+        self.cancel_btn.clicked.connect(self._on_cancel)
+        button_column.addWidget(self.cancel_btn)
+
+        # Attach button
+        self.attach_btn = QPushButton("Attach")
+        self.attach_btn.setStyleSheet(get_attach_button_style())
+        self.attach_btn.setToolTip("Attach files")
+        self.attach_btn.clicked.connect(self._on_attach)
+        button_column.addWidget(self.attach_btn)
+
+        input_row.addLayout(button_column)
+
+        layout.addLayout(input_row)
 
         return container
 
@@ -221,6 +229,7 @@ class CodePuppyApp(QMainWindow):
         """Set up the main toolbar."""
         toolbar = QToolBar("Main Toolbar")
         toolbar.setMovable(False)
+        toolbar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self.addToolBar(toolbar)
 
         # New conversation action
@@ -304,6 +313,10 @@ class CodePuppyApp(QMainWindow):
         # Escape to cancel
         cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
         cancel_shortcut.activated.connect(self._on_cancel)
+
+        # Sidebar toggle
+        sidebar_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
+        sidebar_shortcut.activated.connect(self._on_toggle_sidebar)
 
         # Sidebar tab shortcuts
         agents_shortcut = QShortcut(QKeySequence("Ctrl+Shift+A"), self)
@@ -423,9 +436,9 @@ class CodePuppyApp(QMainWindow):
         """Handle attach button click."""
         files, _ = QFileDialog.getOpenFileNames(
             self,
-            "Select Files to Attach",
+            "Attach Images",
             self.sidebar.get_root_path(),
-            "All Files (*.*)"
+            "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"
         )
         for filepath in files:
             self._add_attachment(filepath)
@@ -464,7 +477,7 @@ class CodePuppyApp(QMainWindow):
             # Re-enable UI
             self.send_btn.setEnabled(True)
             self.attach_btn.setEnabled(True)
-            self.cancel_btn.setVisible(False)
+            self.cancel_btn.setEnabled(False)
             self.input_field.setEnabled(True)
             self.statusBar().showMessage("Cancelled")
 
@@ -571,6 +584,10 @@ class CodePuppyApp(QMainWindow):
     def _on_mcp(self):
         """Handle MCP action - switch to MCP tab in sidebar."""
         self.sidebar.switch_to_tab('mcp')
+
+    def _on_toggle_sidebar(self):
+        """Toggle sidebar collapse state."""
+        self.sidebar.toggle()
 
     def _on_servers_changed(self):
         """Handle MCP servers change from sidebar panel."""
@@ -901,7 +918,7 @@ class CodePuppyApp(QMainWindow):
         """Handle agent busy state change."""
         self.send_btn.setEnabled(not busy)
         self.attach_btn.setEnabled(not busy)
-        self.cancel_btn.setVisible(busy)
+        self.cancel_btn.setEnabled(busy)
         self.input_field.setEnabled(not busy)
 
         if busy:
@@ -1018,8 +1035,8 @@ class CodePuppyApp(QMainWindow):
         """Refresh widget styles after theme change."""
         colors = self._theme_manager.current
 
-        # Refresh input area
-        self.input_field.setStyleSheet(input_style())
+        # Refresh input area styles
+        self.input_field.setStyleSheet(get_modern_input_field_style())
         self.send_btn.setStyleSheet(get_send_button_style())
         self.cancel_btn.setStyleSheet(get_cancel_button_style())
         self.attach_btn.setStyleSheet(get_attach_button_style())
@@ -1027,7 +1044,9 @@ class CodePuppyApp(QMainWindow):
         # Refresh input container
         input_container = self.input_field.parent()
         if input_container:
-            input_container.setStyleSheet(f"QWidget {{ background-color: {colors.bg_secondary}; }}")
+            # Find the actual container widget (grandparent)
+            if input_container.parent():
+                input_container.parent().setStyleSheet(get_modern_input_container_style())
 
         # Refresh status bar labels
         self._activity_label.setStyleSheet(get_status_activity_style())
