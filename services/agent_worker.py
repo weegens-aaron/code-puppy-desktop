@@ -219,17 +219,21 @@ class AgentWorker(QObject):
 
         async def poll_message_bus():
             """Poll message bus for DiffMessage events."""
+            msg_count = 0
             while self._running and not self._cancelled:
                 msg = message_bus.get_message_nowait()
                 if msg is not None:
-                    logger.debug(f"Message bus received: {type(msg).__name__}")
+                    msg_count += 1
+                    msg_type = type(msg).__name__
+                    logger.info(f"Message bus received #{msg_count}: {msg_type}")
                     if isinstance(msg, DiffMessage):
-                        logger.info(f"DiffMessage received for {msg.path}, {len(msg.diff_lines)} lines")
+                        logger.info(f"DiffMessage for {msg.path}, operation={msg.operation}, {len(msg.diff_lines)} lines")
                         # Extract diff text from diff_lines
                         diff_text = "\n".join(
                             (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
                             for line in msg.diff_lines
                         )
+                        logger.info(f"Emitting diff_received signal with {len(diff_text)} chars")
                         self.diff_received.emit(msg.path, msg.operation, diff_text)
                 await asyncio.sleep(0.01)
 
