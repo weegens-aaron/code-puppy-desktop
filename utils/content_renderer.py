@@ -222,7 +222,14 @@ class ContentRenderer:
         else:
             status_icon = "\u2713"  # Checkmark
             status_color = "#4ade80"  # Green
-            status_text = operation.capitalize() + "d" if operation != "modify" else "Modified"
+            # Proper past tense for each operation
+            past_tense = {
+                "create": "Created",
+                "modify": "Modified",
+                "delete": "Deleted",
+                "write": "Written",
+            }
+            status_text = past_tense.get(operation.lower(), "Done")
         
         html_parts = [
             '<div class="panel-header">',
@@ -576,72 +583,28 @@ class ContentRenderer:
         new_string = payload.get("new_string", payload.get("new_str", ""))
 
         if replacements:
-            # Edit with replacements array
-            for i, repl in enumerate(replacements[:3]):  # Limit to 3
-                old_str = repl.get("old_str", repl.get("old_string", ""))
-                new_str = repl.get("new_str", repl.get("new_string", ""))
-
-                # Truncate long strings
-                old_preview = old_str[:100] + "..." if len(old_str) > 100 else old_str
-                new_preview = new_str[:100] + "..." if len(new_str) > 100 else new_str
-
-                html_parts.append(
-                    f'<div class="tool-preview">'
-                    f'<div class="label">Change {i + 1}:</div>'
-                    f'<div class="content">'
-                    f'<span class="old">{escape_html(old_preview)}</span>'
-                    f'<span class="arrow">\u2192</span>'
-                    f'<span class="new">{escape_html(new_preview)}</span>'
-                    f'</div></div>'
-                )
-
-            if len(replacements) > 3:
-                html_parts.append(
-                    f'<div class="tool-param" style="color:#a0a0a0">'
-                    f'...and {len(replacements) - 3} more changes</div>'
-                )
+            # Edit with replacements array - show compact summary
+            change_count = len(replacements)
+            html_parts.append(
+                f'<div class="tool-param" style="color:#a0a0a0">'
+                f'{change_count} replacement{"s" if change_count > 1 else ""}...</div>'
+            )
 
         elif content:
-            # Write/create with full content
+            # Write/create with full content - show compact summary
             content_lines = content.split('\n')
             line_count = len(content_lines)
-            preview_lines = content_lines[:10]
-            preview = '\n'.join(preview_lines)
-            if len(preview) > 500:
-                preview = preview[:500] + "..."
-            elif line_count > 10:
-                preview += f"\n... ({line_count - 10} more lines)"
-
             html_parts.append(
-                f'<div class="tool-preview">'
-                f'<div class="label">Content ({line_count} lines):</div>'
-                f'<div class="content"><span class="new">{escape_html(preview)}</span></div>'
-                f'</div>'
+                f'<div class="tool-param" style="color:#a0a0a0">'
+                f'Writing {line_count} lines...</div>'
             )
 
         elif new_string:
-            # Single edit with old_string/new_string
-            old_preview = old_string[:100] + "..." if len(old_string) > 100 else old_string
-            new_preview = new_string[:100] + "..." if len(new_string) > 100 else new_string
-
-            if old_string:
-                html_parts.append(
-                    f'<div class="tool-preview">'
-                    f'<div class="label">Change:</div>'
-                    f'<div class="content">'
-                    f'<span class="old">{escape_html(old_preview)}</span>'
-                    f'<span class="arrow">\u2192</span>'
-                    f'<span class="new">{escape_html(new_preview)}</span>'
-                    f'</div></div>'
-                )
-            else:
-                # New file creation (empty old_string)
-                html_parts.append(
-                    f'<div class="tool-preview">'
-                    f'<div class="label">New content:</div>'
-                    f'<div class="content"><span class="new">{escape_html(new_preview)}</span></div>'
-                    f'</div>'
-                )
+            # Single edit with old_string/new_string - show compact summary
+            html_parts.append(
+                f'<div class="tool-param" style="color:#a0a0a0">'
+                f'Applying edit...</div>'
+            )
 
         elif raw_json:
             # Streaming - show indicator that content is being received
