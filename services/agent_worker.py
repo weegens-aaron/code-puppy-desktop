@@ -222,7 +222,9 @@ class AgentWorker(QObject):
             while self._running and not self._cancelled:
                 msg = message_bus.get_message_nowait()
                 if msg is not None:
+                    logger.debug(f"Message bus received: {type(msg).__name__}")
                     if isinstance(msg, DiffMessage):
+                        logger.info(f"DiffMessage received for {msg.path}, {len(msg.diff_lines)} lines")
                         # Extract diff text from diff_lines
                         diff_text = "\n".join(
                             (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
@@ -414,6 +416,9 @@ class AgentWorker(QObject):
 
         Delegates extraction to ToolOutputExtractor (SoC) and emits signal
         with appropriate output type and metadata for UI rendering.
+        
+        Note: file_edit outputs are handled via the message bus (DiffMessage)
+        to capture the diff before it's stripped from the result.
         """
         if self._cancelled:
             return
@@ -422,6 +427,11 @@ class AgentWorker(QObject):
             from utils.tool_output_extractor import ToolOutputExtractor
 
             output_type, metadata = ToolOutputExtractor.extract(tool_name, tool_args, result)
+            
+            # Skip file_edit - we get these from the message bus with the diff intact
+            if output_type == "file_edit":
+                return
+                
             if output_type:
                 metadata["tool_name"] = tool_name
                 metadata["duration_ms"] = duration_ms
