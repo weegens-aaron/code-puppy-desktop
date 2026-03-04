@@ -46,6 +46,7 @@ class AgentWorker(QObject):
     tool_call_args_delta = Signal(str, str)  # tool_name, args_delta
     tool_call_complete = Signal(str)  # tool_name
     tool_output_received = Signal(str, str, dict)  # tool_name, output_type, metadata
+    diff_received = Signal(str, str, str)  # filepath, operation, diff_text
     response_complete = Signal(str)  # Full response text
     error_occurred = Signal(str)  # Error message
     agent_busy = Signal(bool)  # True when agent is running
@@ -193,6 +194,7 @@ class AgentWorker(QObject):
     async def _execute_agent(self, prompt: str, attachments: list):
         """Execute agent asynchronously in the worker thread."""
         from code_puppy import callbacks
+        from code_puppy.messaging import get_message_bus, DiffMessage
 
         self._running = True
         self._cancelled = False
@@ -207,9 +209,30 @@ class AgentWorker(QObject):
         stream_callback_registered = False
         tool_callback_registered = False
 
+        # Set up message bus for diff messages
+        message_bus = get_message_bus()
+        message_bus.mark_renderer_active()
+
         # Retry configuration
         max_retries = 3
         retry_delay = 2.0  # seconds
+
+        async def poll_message_bus():
+            """Poll message bus for DiffMessage events."""
+            while self._running and not self._cancelled:
+                msg = message_bus.get_message_nowait()
+                if msg is not None:
+                    if isinstance(msg, DiffMessage):
+                        # Extract diff text from diff_lines
+                        diff_text = "\n".join(
+                            (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
+                            for line in msg.diff_lines
+                        )
+                        self.diff_received.emit(msg.path, msg.operation, diff_text)
+                await asyncio.sleep(0.01)
+
+        # Start message bus polling task
+        poll_task = asyncio.create_task(poll_message_bus())
 
         try:
             # Register callback for streaming events
@@ -271,6 +294,14 @@ class AgentWorker(QObject):
             logger.error(f"Agent error: {e}", exc_info=True)
             self.error_occurred.emit(str(e))
         finally:
+            # Stop message bus polling
+            poll_task.cancel()
+            try:
+                await poll_task
+            except asyncio.CancelledError:
+                pass
+            message_bus.mark_renderer_inactive()
+
             # Unregister callbacks
             if stream_callback_registered:
                 callbacks.unregister_callback("stream_event", self._handle_stream_event)
