@@ -19,7 +19,6 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
 from widgets.message_list import MessageListView
-from widgets.chat_tabs import ChatTabWidget
 from widgets.collapsible_sidebar import CollapsibleSidebar
 from models.data_types import Message, MessageRole
 from services.agent_bridge import AgentBridge
@@ -75,13 +74,8 @@ class CodePuppyApp(QMainWindow):
 
         # Initialize services (after UI is set up)
         self._setup_statusbar()
-        self._streaming = StreamingHandler(self.chat_tabs.message_model, parent=self)
-        self._session = SessionManager(self.chat_tabs.message_model, parent=self)
-
-        # Subagent streaming handlers: session_id -> StreamingHandler
-        self._subagent_handlers: dict[str, StreamingHandler] = {}
-        # Subagent metadata: session_id -> {"name": agent_name, "prompt": prompt}
-        self._subagent_meta: dict[str, dict] = {}
+        self._streaming = StreamingHandler(self.message_list.message_model, parent=self)
+        self._session = SessionManager(self.message_list.message_model, parent=self)
 
         self._setup_shortcuts()
         self._connect_agent_signals()
@@ -124,18 +118,6 @@ class CodePuppyApp(QMainWindow):
         self.agent_bridge.error_occurred.connect(self._on_error)
         self.agent_bridge.agent_busy.connect(self._on_agent_busy)
 
-        # Subagent signals
-        self.agent_bridge.subagent_started.connect(self._on_subagent_started)
-        self.agent_bridge.subagent_token.connect(self._on_subagent_token)
-        self.agent_bridge.subagent_thinking_started.connect(self._on_subagent_thinking_started)
-        self.agent_bridge.subagent_thinking_content.connect(self._on_subagent_thinking_content)
-        self.agent_bridge.subagent_thinking_complete.connect(self._on_subagent_thinking_complete)
-        self.agent_bridge.subagent_tool_started.connect(self._on_subagent_tool_started)
-        self.agent_bridge.subagent_tool_args_delta.connect(self._on_subagent_tool_args_delta)
-        self.agent_bridge.subagent_tool_complete.connect(self._on_subagent_tool_complete)
-        self.agent_bridge.subagent_tool_output.connect(self._on_subagent_tool_output)
-        self.agent_bridge.subagent_complete.connect(self._on_subagent_complete)
-
         # Ask user question signal
         self.agent_bridge.ask_user_question_requested.connect(self._on_ask_user_question)
 
@@ -160,9 +142,9 @@ class CodePuppyApp(QMainWindow):
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
 
-        # Chat tabs (tabbed message list per agent)
-        self.chat_tabs = ChatTabWidget()
-        chat_layout.addWidget(self.chat_tabs, stretch=1)
+        # Message list (single chat view)
+        self.message_list = MessageListView()
+        chat_layout.addWidget(self.message_list, stretch=1)
 
         # Input area
         input_widget = self._create_input_area()
@@ -184,11 +166,6 @@ class CodePuppyApp(QMainWindow):
         self.sidebar.model_changed.connect(self._on_model_changed)
         self.sidebar.skills_changed.connect(lambda: self._status.show_message("Skills updated"))
         self.sidebar.servers_changed.connect(lambda: self._status.show_message("MCP servers updated"))
-
-    @property
-    def message_list(self) -> MessageListView:
-        """Get the current message list (backward compatibility)."""
-        return self.chat_tabs.message_list
 
     def _create_input_area(self) -> QWidget:
         """Create the message input area."""
@@ -443,14 +420,8 @@ class CodePuppyApp(QMainWindow):
         self._streaming.reset_indices()
         self._clear_attachments()
 
-        # Clean up any active subagent handlers
-        for handler in self._subagent_handlers.values():
-            handler.cleanup()
-        self._subagent_handlers.clear()
-        self._subagent_meta.clear()
-
-        # Clear UI widgets and remove subagent tabs
-        self.chat_tabs.clear_all()
+        # Clear UI widgets
+        self.message_list.clear()
         self._session.start_new_session(self.agent_bridge.clear_history)
         self._status.update_info()
 
@@ -477,7 +448,6 @@ class CodePuppyApp(QMainWindow):
             return
 
         self._start_new_session()
-        self.chat_tabs.update_main_tab_name(agent_name)
         self.setWindowTitle(f"{get_puppy_name()} - {os.path.basename(os.getcwd())}")
         self._status.show_message(f"Switched to agent: {agent_name}")
 
@@ -499,12 +469,12 @@ class CodePuppyApp(QMainWindow):
         history = self.sidebar.sessions_panel.get_loaded_history()
         if history:
             self._streaming.reset_indices()
-            self.chat_tabs.clear()
+            self.message_list.clear()
 
             success = self._session.load_session(
                 session_name, history,
-                lambda: self.chat_tabs.message_list.verticalScrollBar().setValue(
-                    self.chat_tabs.message_list.verticalScrollBar().maximum()
+                lambda: self.message_list.verticalScrollBar().setValue(
+                    self.message_list.verticalScrollBar().maximum()
                 )
             )
 
@@ -591,102 +561,6 @@ class CodePuppyApp(QMainWindow):
         self.input_field.setEnabled(enabled)
 
     # -------------------------------------------------------------------------
-    # Subagent event handlers
-    # -------------------------------------------------------------------------
-
-    def _on_subagent_started(self, session_id: str, agent_name: str, prompt: str):
-        """Handle subagent start - create tab and streaming handler."""
-        # Store metadata
-        self._subagent_meta[session_id] = {"name": agent_name, "prompt": prompt}
-
-        # Create a new tab for this subagent
-        message_list = self.chat_tabs.add_agent_tab(session_id, agent_name)
-
-        # Create streaming handler for this subagent
-        handler = StreamingHandler(message_list.message_model, parent=self)
-        self._subagent_handlers[session_id] = handler
-
-        # Switch to the subagent tab
-        self.chat_tabs.switch_to_tab(session_id)
-
-        # Add a system message showing the prompt
-        message_list.message_model.add_message(
-            Message(
-                role=MessageRole.USER,
-                content=f"Task: {prompt[:200]}{'...' if len(prompt) > 200 else ''}"
-            )
-        )
-
-        self._status.show_message(f"Subagent started: {agent_name}")
-
-    def _on_subagent_token(self, session_id: str, content: str):
-        """Handle token from subagent."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.handle_token(content)
-
-    def _on_subagent_thinking_started(self, session_id: str):
-        """Handle subagent thinking started."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.start_thinking()
-
-    def _on_subagent_thinking_content(self, session_id: str, content: str):
-        """Handle subagent thinking content."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.append_thinking(content)
-
-    def _on_subagent_thinking_complete(self, session_id: str):
-        """Handle subagent thinking complete."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.complete_thinking()
-
-    def _on_subagent_tool_started(self, session_id: str, tool_name: str, tool_args: str):
-        """Handle subagent tool call started."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.start_tool_call(tool_name, tool_args)
-
-    def _on_subagent_tool_args_delta(self, session_id: str, tool_name: str, args_delta: str):
-        """Handle subagent tool args delta."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.append_tool_args(tool_name, args_delta)
-
-    def _on_subagent_tool_complete(self, session_id: str, tool_name: str):
-        """Handle subagent tool call complete."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.complete_tool_call(tool_name)
-
-    def _on_subagent_tool_output(self, session_id: str, tool_name: str, output_type: str, metadata: dict):
-        """Handle subagent tool output."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.add_tool_output(tool_name, output_type, metadata)
-
-    def _on_subagent_complete(self, session_id: str, agent_name: str, response: str):
-        """Handle subagent completion."""
-        handler = self._subagent_handlers.get(session_id)
-        if handler:
-            handler.complete_response(response)
-            handler.cleanup()
-
-        # Clean up handler
-        self._subagent_handlers.pop(session_id, None)
-        self._subagent_meta.pop(session_id, None)
-
-        # Update tab name to show completion
-        self.chat_tabs.update_tab_name(session_id, f"{agent_name} (done)")
-
-        # Switch back to main tab
-        self.chat_tabs.switch_to_tab("main")
-
-        self._status.show_message(f"Subagent completed: {agent_name}")
-
-    # -------------------------------------------------------------------------
     # Ask user question
     # -------------------------------------------------------------------------
 
@@ -742,12 +616,6 @@ class CodePuppyApp(QMainWindow):
         self._streaming.cleanup()
         self._status.cleanup()
 
-        # Clean up subagent handlers
-        for handler in self._subagent_handlers.values():
-            handler.cleanup()
-        self._subagent_handlers.clear()
-        self._subagent_meta.clear()
-
         # Clean up theme listener
         try:
             self._theme_manager.remove_listener(self._on_theme_changed)
@@ -755,8 +623,8 @@ class CodePuppyApp(QMainWindow):
             pass
 
         # Clean up child widgets
-        if hasattr(self.chat_tabs, 'cleanup'):
-            self.chat_tabs.cleanup()
+        if hasattr(self.message_list, 'cleanup'):
+            self.message_list.cleanup()
         if hasattr(self.sidebar, 'cleanup'):
             self.sidebar.cleanup()
 
