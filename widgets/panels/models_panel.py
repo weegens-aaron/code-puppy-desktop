@@ -18,6 +18,7 @@ class ModelsPanel(BaseSidebarPanel):
     """
 
     model_changed = Signal(str)  # Emits model name when changed
+    model_queued = Signal(str)   # Emits model name when queued (agent busy)
 
     def __init__(
         self,
@@ -32,6 +33,8 @@ class ModelsPanel(BaseSidebarPanel):
         """
         self._model_service = model_service or get_model_service()
         self._current_model = ""
+        self._is_busy = False
+        self._pending_model: Optional[str] = None
 
         super().__init__(
             title="Models",
@@ -146,7 +149,10 @@ class ModelsPanel(BaseSidebarPanel):
         self._on_apply()
 
     def _on_apply(self):
-        """Apply the selected model."""
+        """Apply the selected model.
+        
+        If the agent is busy, queue the model change instead of applying immediately.
+        """
         current = self._item_list.currentItem()
         if not current:
             return
@@ -159,9 +165,40 @@ class ModelsPanel(BaseSidebarPanel):
         if model_name.lower() == self._current_model.lower():
             return
 
+        # If agent is busy, queue the model change
+        if self._is_busy:
+            self._pending_model = model_name
+            self.model_queued.emit(model_name)
+            return
+
+        self._apply_model(model_name)
+
+    def _apply_model(self, model_name: str):
+        """Actually apply the model change."""
         if self._model_service.set_current_model(model_name):
             self._current_model = model_name
+            self._pending_model = None
             self._load_items()  # Refresh to show new selection
             self.model_changed.emit(model_name)
         else:
             QMessageBox.critical(self, "Error", f"Failed to set model: {model_name}")
+
+    def set_busy(self, busy: bool):
+        """Set the busy state.
+        
+        When transitioning from busy to not busy, apply any pending model change.
+        """
+        was_busy = self._is_busy
+        self._is_busy = busy
+        
+        # Apply pending model when agent becomes idle
+        if was_busy and not busy and self._pending_model:
+            self._apply_model(self._pending_model)
+
+    def get_pending_model(self) -> Optional[str]:
+        """Get the pending model name, if any."""
+        return self._pending_model
+
+    def clear_pending_model(self):
+        """Clear the pending model without applying it."""
+        self._pending_model = None

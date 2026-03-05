@@ -37,6 +37,7 @@ class SidebarTabs(QWidget):
     # Forward panel signals
     agent_selected = Signal(str)
     model_changed = Signal(str)
+    model_queued = Signal(str)  # Model change queued (agent busy)
     skills_changed = Signal()
     servers_changed = Signal()
     session_selected = Signal(str)  # Emits session name or "__NEW__"
@@ -89,6 +90,7 @@ class SidebarTabs(QWidget):
         self._sessions_panel.session_selected.connect(self.session_selected)
         self._agents_panel.agent_selected.connect(self.agent_selected)
         self._models_panel.model_changed.connect(self.model_changed)
+        self._models_panel.model_queued.connect(self.model_queued)
         self._skills_panel.skills_changed.connect(self.skills_changed)
         self._mcp_panel.servers_changed.connect(self.servers_changed)
 
@@ -138,6 +140,13 @@ class SidebarTabs(QWidget):
         self._models_panel.refresh()
         self._skills_panel.refresh()
         self._mcp_panel.refresh()
+
+    def set_agent_busy(self, busy: bool):
+        """Set the agent busy state for panels that need to know.
+        
+        This allows panels to queue changes during active requests.
+        """
+        self._models_panel.set_busy(busy)
 
     def switch_to_tab(self, tab_name: str):
         """Switch to a specific tab by name.

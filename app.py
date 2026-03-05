@@ -164,6 +164,7 @@ class CodePuppyApp(QMainWindow):
         self.sidebar.session_selected.connect(self._on_session_selected)
         self.sidebar.agent_selected.connect(self._on_agent_selected)
         self.sidebar.model_changed.connect(self._on_model_changed)
+        self.sidebar.model_queued.connect(self._on_model_queued)
         self.sidebar.skills_changed.connect(lambda: self._status.show_message("Skills updated"))
         self.sidebar.servers_changed.connect(lambda: self._status.show_message("MCP servers updated"))
 
@@ -456,6 +457,10 @@ class CodePuppyApp(QMainWindow):
         self._status.update_info()
         self._status.show_message(f"Model changed to: {model_name}")
 
+    def _on_model_queued(self, model_name: str):
+        """Handle model change queued (agent is busy)."""
+        self._status.show_message(f"Model '{model_name}' queued (will apply after response)")
+
     def _on_session_selected(self, session_name: str):
         """Handle session selection from the sessions panel."""
         if self.agent_bridge.is_busy():
@@ -545,6 +550,9 @@ class CodePuppyApp(QMainWindow):
     def _on_agent_busy(self, busy: bool):
         """Handle agent busy state change."""
         self._set_ui_enabled(not busy)
+        
+        # Update sidebar panels about busy state (for queuing model changes)
+        self.sidebar.set_agent_busy(busy)
 
         if busy:
             self._status.show_message("Processing...")

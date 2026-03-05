@@ -55,6 +55,7 @@ class CollapsibleSidebar(QWidget):
     directory_changed = Signal(str)
     agent_selected = Signal(str)
     model_changed = Signal(str)
+    model_queued = Signal(str)  # Model change queued (agent busy)
     skills_changed = Signal()
     servers_changed = Signal()
     session_selected = Signal(str)
@@ -151,6 +152,7 @@ class CollapsibleSidebar(QWidget):
         self._sidebar_tabs.directory_changed.connect(self.directory_changed)
         self._sidebar_tabs.agent_selected.connect(self.agent_selected)
         self._sidebar_tabs.model_changed.connect(self.model_changed)
+        self._sidebar_tabs.model_queued.connect(self.model_queued)
         self._sidebar_tabs.skills_changed.connect(self.skills_changed)
         self._sidebar_tabs.servers_changed.connect(self.servers_changed)
         self._sidebar_tabs.session_selected.connect(self.session_selected)
@@ -268,6 +270,10 @@ class CollapsibleSidebar(QWidget):
 
     def refresh_all(self):
         self._sidebar_tabs.refresh_all()
+
+    def set_agent_busy(self, busy: bool):
+        """Set the agent busy state for panels that need to know."""
+        self._sidebar_tabs.set_agent_busy(busy)
 
     def switch_to_tab(self, tab_name: str):
         self._current_tab = tab_name.lower()
