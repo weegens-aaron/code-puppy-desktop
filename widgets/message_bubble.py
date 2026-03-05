@@ -310,34 +310,45 @@ class MessageWidget(QFrame):
         if not os.path.isfile(abs_path):
             return
 
-        # Get image dimensions
+        # Verify it's a valid image
         pixmap = QPixmap(abs_path)
         if pixmap.isNull():
             return
 
-        # Scale to fit within max dimensions while preserving aspect ratio
-        # Max width ~600px to fit in message bubble, max height 300px
-        max_width = 600
-        max_height = 300
+        # Use HTML rendering like the agent's image tool for consistent appearance
+        # Normalize path for file:// URL (forward slashes)
+        file_url = f"file:///{abs_path.replace(os.sep, '/')}"
 
-        scaled_pixmap = pixmap
-        if pixmap.width() > max_width or pixmap.height() > max_height:
-            scaled_pixmap = pixmap.scaled(
-                max_width, max_height,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
+        html = f'''
+        <div style="margin: 4px 0;">
+            <img src="{file_url}"
+                 style="max-width: 100%; max-height: 300px; border-radius: 4px;
+                        border: 1px solid #444; display: block;"/>
+        </div>
+        '''
 
-        # Create a QLabel with the scaled pixmap
-        img_label = QLabel()
-        img_label.setPixmap(scaled_pixmap)
-        img_label.setStyleSheet("""
-            QLabel {
-                border-radius: 4px;
-                border: 1px solid #444;
-            }
-        """)
-        self._attachments_layout.addWidget(img_label)
+        # Create a QTextBrowser for HTML rendering (same as agent images)
+        img_browser = QTextBrowser()
+        img_browser.setHtml(html)
+        img_browser.setOpenExternalLinks(False)
+        img_browser.setFrameShape(QFrame.Shape.NoFrame)
+        img_browser.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        img_browser.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        img_browser.setStyleSheet("background-color: transparent;")
+        img_browser.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        # Auto-resize based on document content (like main content area)
+        def adjust_browser_height(size=None):
+            doc = img_browser.document()
+            doc.setTextWidth(img_browser.viewport().width())
+            height = int(doc.size().height()) + 8
+            img_browser.setFixedHeight(max(50, height))
+
+        img_browser.document().documentLayout().documentSizeChanged.connect(
+            adjust_browser_height
+        )
+
+        self._attachments_layout.addWidget(img_browser)
 
     def _add_file_attachment(self, filepath: str):
         """Add a non-image file attachment widget."""
