@@ -489,6 +489,7 @@ class ContentRenderer:
             "list_or_search_skills": "\U0001F3AF",
             "activate_skill": "\U0001F680",
             "load_image_for_analysis": "\U0001F5BC",
+            "ask_user_question": "\u2753",
         }
         icon = tool_icons.get(tool_lower, "\U0001F527")
 
@@ -509,6 +510,8 @@ class ContentRenderer:
             return ContentRenderer._render_skill_tool_call(tool_name, args, icon)
         elif tool_lower == "load_image_for_analysis":
             return ContentRenderer._render_image_tool_call(args, icon)
+        elif tool_lower == "ask_user_question":
+            return ContentRenderer._render_ask_user_question_call(args, "\u2753")
         else:
             return ContentRenderer._render_generic_tool_call(tool_name, args, icon)
 
@@ -772,6 +775,82 @@ class ContentRenderer:
                 '<div class="tool-param" style="color: #a0a0a0; font-style: italic;">'
                 '(image not found or path invalid)'
                 '</div>'
+            )
+
+        html_parts.append('</div>')
+        return wrap_html_with_css(''.join(html_parts), css_styles.get_tool_call_css())
+
+    @staticmethod
+    def _render_ask_user_question_call(args: dict, icon: str) -> str:
+        """Render ask_user_question tool call with formatted questions."""
+        html_parts = [
+            '<div class="tool-content">',
+        ]
+
+        # Get questions from args
+        questions = args.get("questions", [])
+        raw_json = args.get("_raw", "")
+
+        if questions:
+            for i, q in enumerate(questions):
+                header = q.get("header", f"Q{i+1}")
+                question_text = q.get("question", "")
+                options = q.get("options", [])
+                multi = q.get("multi_select", q.get("multiSelect", False))
+
+                # Question header with icon
+                html_parts.append(
+                    f'<div class="tool-param" style="margin-top: 8px;">'
+                    f'<span style="color: #f0b060; font-weight: bold;">{icon} {escape_html(header)}</span>'
+                    f'{"  (multi-select)" if multi else ""}'
+                    f'</div>'
+                )
+
+                # Question text
+                if question_text:
+                    html_parts.append(
+                        f'<div style="margin-left: 16px; color: #e0e0e0; margin-bottom: 4px;">'
+                        f'{escape_html(question_text)}'
+                        f'</div>'
+                    )
+
+                # Options
+                if options:
+                    html_parts.append('<div style="margin-left: 24px;">')
+                    for opt in options[:6]:  # Limit to 6 options
+                        label = opt.get("label", "")
+                        desc = opt.get("description", "")
+                        html_parts.append(
+                            f'<div style="color: #a0c0ff; padding: 2px 0;">'
+                            f'\u2022 {escape_html(label)}'
+                        )
+                        if desc:
+                            html_parts.append(
+                                f'<span style="color: #808080; font-size: 0.9em;"> - {escape_html(desc[:50])}</span>'
+                            )
+                        html_parts.append('</div>')
+                    if len(options) > 6:
+                        html_parts.append(
+                            f'<div style="color: #808080; font-style: italic;">...and {len(options) - 6} more</div>'
+                        )
+                    html_parts.append('</div>')
+
+            # Summary
+            html_parts.append(
+                f'<div style="color: #808080; margin-top: 8px; font-style: italic;">'
+                f'{len(questions)} question{"s" if len(questions) > 1 else ""} - awaiting user response...'
+                f'</div>'
+            )
+        elif raw_json:
+            # Partial/streaming - show simplified message
+            html_parts.append(
+                '<div class="tool-param">'
+                '<span style="color: #f0b060;">Preparing questions...</span>'
+                '</div>'
+            )
+        else:
+            html_parts.append(
+                '<div class="tool-param" style="color: #808080;">(no questions)</div>'
             )
 
         html_parts.append('</div>')

@@ -1,6 +1,7 @@
 """Worker thread for agent execution with streaming support."""
 
 import asyncio
+import json
 import logging
 import signal
 import threading
@@ -37,7 +38,7 @@ class AgentWorker(QObject):
     and emits Qt signals for thread-safe UI updates.
     """
 
-    # Signals for streaming events
+    # Signals for streaming events (main agent)
     token_received = Signal(str)  # Text content delta
     thinking_started = Signal()
     thinking_content = Signal(str)  # Thinking content delta
@@ -51,6 +52,21 @@ class AgentWorker(QObject):
     error_occurred = Signal(str)  # Error message
     agent_busy = Signal(bool)  # True when agent is running
 
+    # Signals for subagent events
+    subagent_started = Signal(str, str, str)  # session_id, agent_name, prompt
+    subagent_token = Signal(str, str)  # session_id, content_delta
+    subagent_thinking_started = Signal(str)  # session_id
+    subagent_thinking_content = Signal(str, str)  # session_id, content_delta
+    subagent_thinking_complete = Signal(str)  # session_id
+    subagent_tool_started = Signal(str, str, str)  # session_id, tool_name, tool_args
+    subagent_tool_args_delta = Signal(str, str, str)  # session_id, tool_name, args_delta
+    subagent_tool_complete = Signal(str, str)  # session_id, tool_name
+    subagent_tool_output = Signal(str, str, str, dict)  # session_id, tool_name, output_type, metadata
+    subagent_complete = Signal(str, str, str)  # session_id, agent_name, response
+
+    # Signal for ask_user_question tool
+    ask_user_question_requested = Signal(str)  # questions_json
+
     def __init__(self):
         super().__init__()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -61,18 +77,54 @@ class AgentWorker(QObject):
         self._agent = None  # Cached agent reference
         self._current_task: Optional[asyncio.Task] = None  # Track current task for cancellation
 
-        # Track active parts for proper event handling
+        # Track active parts for proper event handling (main agent)
         self._thinking_parts: set[int] = set()
         self._text_parts: set[int] = set()
         self._tool_parts: dict[int, str] = {}  # index -> tool_name
+
+        # Track active subagents and their parts
+        self._active_subagents: set[str] = set()  # session_ids
+        self._subagent_thinking_parts: dict[str, set[int]] = {}  # session_id -> indices
+        self._subagent_text_parts: dict[str, set[int]] = {}  # session_id -> indices
+        self._subagent_tool_parts: dict[str, dict[int, str]] = {}  # session_id -> {index: tool_name}
+        self._pending_subagent_prompts: dict[str, str] = {}  # agent_name -> prompt
+
+        # Ask user question synchronization
+        self._question_event = threading.Event()
+        self._question_response: Optional[dict] = None
 
     def start_worker(self):
         """Start the worker thread with its own event loop."""
         if self._thread is not None and self._thread.is_alive():
             return
 
+        # Patch ask_user_question handler to use GUI
+        self._patch_ask_user_question()
+
         self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
         self._thread.start()
+
+    def _patch_ask_user_question(self):
+        """Patch the ask_user_question tool to use our GUI handler."""
+        try:
+            from code_puppy.tools.ask_user_question import registration as auq_registration
+
+            # Store original for potential restoration
+            self._original_ask_user_question = auq_registration._ask_user_question_impl
+
+            # Create a wrapper that uses our GUI handler
+            def gui_handler_wrapper(questions, timeout=300):
+                logger.info(f"GUI ask_user_question called with {len(questions)} questions")
+                return self._gui_ask_user_question(questions)
+
+            # Patch the implementation reference in the registration module
+            auq_registration._ask_user_question_impl = gui_handler_wrapper
+            logger.info("Patched ask_user_question to use GUI handler")
+
+        except ImportError as e:
+            logger.warning(f"Could not patch ask_user_question: {e}")
+        except Exception as e:
+            logger.error(f"Error patching ask_user_question: {e}", exc_info=True)
 
     def prewarm(self):
         """Pre-initialize agent and MCP connections to reduce first-message latency."""
@@ -165,6 +217,58 @@ class AgentWorker(QObject):
             logger.info("Cleared agent message history")
         self._agent = None
 
+    def set_question_response(self, response: dict):
+        """Set the response to an ask_user_question request (called from main thread).
+
+        Args:
+            response: Dict with structure matching QuestionDialog.get_results()
+        """
+        self._question_response = response
+        self._question_event.set()
+        logger.info(f"Question response set: cancelled={response.get('cancelled', False)}")
+
+    def _gui_ask_user_question(self, questions: list[dict]) -> Any:
+        """Custom ask_user_question handler for GUI mode.
+
+        Emits a signal to show the dialog and blocks until response is received.
+        """
+        from code_puppy.tools.ask_user_question.models import (
+            AskUserQuestionOutput,
+            QuestionAnswer,
+        )
+
+        # Clear any previous state
+        self._question_event.clear()
+        self._question_response = None
+
+        # Emit signal with questions (will be handled in main thread)
+        questions_json = json.dumps(questions)
+        self.ask_user_question_requested.emit(questions_json)
+        logger.info(f"Emitted ask_user_question_requested with {len(questions)} questions")
+
+        # Wait for response from main thread (with timeout to allow cancellation checks)
+        while not self._cancelled:
+            if self._question_event.wait(timeout=0.1):
+                break
+
+        if self._cancelled:
+            return AskUserQuestionOutput.cancelled_response()
+
+        response = self._question_response
+        if response is None or response.get("cancelled", False):
+            return AskUserQuestionOutput.cancelled_response()
+
+        # Convert response to AskUserQuestionOutput format
+        answers = []
+        for answer_data in response.get("answers", []):
+            answers.append(QuestionAnswer(
+                question_header=answer_data.get("question_header", ""),
+                selected_options=answer_data.get("selected_options", []),
+                other_text=answer_data.get("other_text"),
+            ))
+
+        return AskUserQuestionOutput(answers=answers)
+
     def _convert_attachments(self, file_paths: list) -> list:
         """Convert file paths to BinaryContent objects."""
         from pydantic_ai import BinaryContent
@@ -194,7 +298,10 @@ class AgentWorker(QObject):
     async def _execute_agent(self, prompt: str, attachments: list):
         """Execute agent asynchronously in the worker thread."""
         from code_puppy import callbacks
-        from code_puppy.messaging import get_message_bus, DiffMessage
+        from code_puppy.messaging import (
+            get_message_bus, DiffMessage,
+            SubAgentInvocationMessage, SubAgentResponseMessage,
+        )
 
         self._running = True
         self._cancelled = False
@@ -207,20 +314,30 @@ class AgentWorker(QObject):
 
         # Track registered callbacks for cleanup
         stream_callback_registered = False
+        pre_tool_callback_registered = False
         tool_callback_registered = False
 
-        # Set up message bus for diff messages
+        # Set up message bus for diff messages and subagent events
         message_bus = get_message_bus()
+        # Mark renderer active so messages are queued instead of buffered
+        message_bus.mark_renderer_active()
+        logger.info(f"MessageBus marked active, has_active_renderer={message_bus.has_active_renderer}")
 
         # Retry configuration
         max_retries = 3
         retry_delay = 2.0  # seconds
 
+        poll_count = 0
         async def poll_message_bus():
-            """Poll message bus for DiffMessage events."""
+            """Poll message bus for DiffMessage and SubAgent events."""
+            nonlocal poll_count
             while self._running and not self._cancelled:
+                poll_count += 1
+                if poll_count % 100 == 0:  # Log every 100 polls (~1 second)
+                    logger.debug(f"MessageBus poll #{poll_count}, queue_size={message_bus.outgoing_qsize}")
                 msg = message_bus.get_message_nowait()
                 if msg is not None:
+                    logger.info(f"MessageBus received: {type(msg).__name__}")
                     if isinstance(msg, DiffMessage):
                         # Extract diff text from diff_lines
                         diff_text = "\n".join(
@@ -228,6 +345,24 @@ class AgentWorker(QObject):
                             for line in msg.diff_lines
                         )
                         self.diff_received.emit(msg.path, msg.operation, diff_text)
+                    elif isinstance(msg, SubAgentInvocationMessage):
+                        # Subagent is starting
+                        session_id = msg.session_id
+                        self._active_subagents.add(session_id)
+                        self._subagent_thinking_parts[session_id] = set()
+                        self._subagent_text_parts[session_id] = set()
+                        self._subagent_tool_parts[session_id] = {}
+                        self.subagent_started.emit(session_id, msg.agent_name, msg.prompt)
+                        logger.info(f"Subagent started: {msg.agent_name} ({session_id})")
+                    elif isinstance(msg, SubAgentResponseMessage):
+                        # Subagent completed
+                        session_id = msg.session_id
+                        self._active_subagents.discard(session_id)
+                        self._subagent_thinking_parts.pop(session_id, None)
+                        self._subagent_text_parts.pop(session_id, None)
+                        self._subagent_tool_parts.pop(session_id, None)
+                        self.subagent_complete.emit(session_id, msg.agent_name, msg.response)
+                        logger.info(f"Subagent completed: {msg.agent_name} ({session_id})")
                 await asyncio.sleep(0.01)
 
         # Start message bus polling task
@@ -237,6 +372,10 @@ class AgentWorker(QObject):
             # Register callback for streaming events
             callbacks.register_callback("stream_event", self._handle_stream_event)
             stream_callback_registered = True
+
+            # Register callback for pre-tool to detect subagent invocations
+            callbacks.register_callback("pre_tool_call", self._handle_pre_tool_call)
+            pre_tool_callback_registered = True
 
             # Register callback for tool outputs
             callbacks.register_callback("post_tool_call", self._handle_post_tool_call)
@@ -300,9 +439,14 @@ class AgentWorker(QObject):
             except asyncio.CancelledError:
                 pass
 
+            # Mark renderer inactive
+            message_bus.mark_renderer_inactive()
+
             # Unregister callbacks
             if stream_callback_registered:
                 callbacks.unregister_callback("stream_event", self._handle_stream_event)
+            if pre_tool_callback_registered:
+                callbacks.unregister_callback("pre_tool_call", self._handle_pre_tool_call)
             if tool_callback_registered:
                 callbacks.unregister_callback("post_tool_call", self._handle_post_tool_call)
 
@@ -313,23 +457,64 @@ class AgentWorker(QObject):
             self._thinking_parts.clear()
             self._text_parts.clear()
             self._tool_parts.clear()
+            self._active_subagents.clear()
+            self._subagent_thinking_parts.clear()
+            self._subagent_text_parts.clear()
+            self._subagent_tool_parts.clear()
+            self._pending_subagent_prompts.clear()
 
     async def _handle_stream_event(
         self, event_type: str, event_data: Any, agent_session_id: str | None = None
     ):
-        """Handle streaming events from the agent callback system."""
+        """Handle streaming events from the agent callback system.
+
+        Routes events to main agent or subagent based on agent_session_id.
+        """
         if self._cancelled:
             return
 
         try:
-            if event_type == "part_start":
-                self._on_part_start(event_data)
-            elif event_type == "part_delta":
-                self._on_part_delta(event_data)
-            elif event_type == "part_end":
-                self._on_part_end(event_data)
+            # Check if this is a subagent event (has a session_id)
+            if agent_session_id:
+                # If we haven't seen this subagent yet, register it
+                if agent_session_id not in self._active_subagents:
+                    self._register_new_subagent(agent_session_id)
+
+                # Route to subagent handler
+                if event_type == "part_start":
+                    self._on_subagent_part_start(agent_session_id, event_data)
+                elif event_type == "part_delta":
+                    self._on_subagent_part_delta(agent_session_id, event_data)
+                elif event_type == "part_end":
+                    self._on_subagent_part_end(agent_session_id, event_data)
+            else:
+                # Main agent event
+                if event_type == "part_start":
+                    self._on_part_start(event_data)
+                elif event_type == "part_delta":
+                    self._on_part_delta(event_data)
+                elif event_type == "part_end":
+                    self._on_part_end(event_data)
         except Exception as e:
             logger.error(f"Error handling stream event: {e}", exc_info=True)
+
+    def _register_new_subagent(self, session_id: str):
+        """Register a new subagent when we first see its stream events."""
+        # Parse agent name from session_id (e.g., "qa-expert-session-a3f2b1" -> "qa-expert")
+        agent_name = session_id
+        if "-session-" in session_id:
+            agent_name = session_id.rsplit("-session-", 1)[0]
+
+        # Initialize tracking for this subagent
+        self._active_subagents.add(session_id)
+        self._subagent_thinking_parts[session_id] = set()
+        self._subagent_text_parts[session_id] = set()
+        self._subagent_tool_parts[session_id] = {}
+
+        logger.info(f"Registered new subagent: {agent_name} ({session_id})")
+        # Get the prompt from pending invocations if available
+        prompt = self._pending_subagent_prompts.pop(agent_name, "")
+        self.subagent_started.emit(session_id, agent_name, prompt)
 
     def _on_part_start(self, event_data: dict):
         """Handle part_start event."""
@@ -400,6 +585,130 @@ class AgentWorker(QObject):
             tool_name = self._tool_parts.pop(index, "unknown")
             self.tool_call_complete.emit(tool_name)
 
+    # -------------------------------------------------------------------------
+    # Subagent event handlers
+    # -------------------------------------------------------------------------
+
+    def _on_subagent_part_start(self, session_id: str, event_data: dict):
+        """Handle part_start event for a subagent."""
+        index = event_data.get("index", 0)
+        part_type = event_data.get("part_type", "")
+        part = event_data.get("part")
+
+        thinking_parts = self._subagent_thinking_parts.get(session_id, set())
+        text_parts = self._subagent_text_parts.get(session_id, set())
+        tool_parts = self._subagent_tool_parts.get(session_id, {})
+
+        if part_type == "ThinkingPart":
+            thinking_parts.add(index)
+            self._subagent_thinking_parts[session_id] = thinking_parts
+            self.subagent_thinking_started.emit(session_id)
+            if part and hasattr(part, 'content') and part.content:
+                self.subagent_thinking_content.emit(session_id, part.content)
+        elif part_type == "TextPart":
+            text_parts.add(index)
+            self._subagent_text_parts[session_id] = text_parts
+            if part and hasattr(part, 'content') and part.content:
+                self.subagent_token.emit(session_id, part.content)
+        elif part_type == "ToolCallPart":
+            # Extract tool name with multiple fallbacks
+            tool_name = "unknown"
+            if part:
+                if hasattr(part, 'tool_name') and part.tool_name:
+                    tool_name = part.tool_name
+                elif hasattr(part, 'name') and part.name:
+                    tool_name = part.name
+                elif isinstance(part, dict):
+                    tool_name = part.get('tool_name', part.get('name', 'unknown'))
+
+            tool_parts[index] = tool_name
+            self._subagent_tool_parts[session_id] = tool_parts
+
+            # Extract tool args
+            tool_args = ""
+            if part:
+                args = None
+                if hasattr(part, 'args'):
+                    args = part.args
+                elif hasattr(part, 'arguments'):
+                    args = part.arguments
+                elif isinstance(part, dict):
+                    args = part.get('args', part.get('arguments'))
+
+                if args:
+                    if isinstance(args, dict):
+                        tool_args = json.dumps(args, indent=2)
+                    elif isinstance(args, str):
+                        tool_args = args
+                    else:
+                        tool_args = str(args)
+
+            self.subagent_tool_started.emit(session_id, tool_name, tool_args)
+            logger.debug(f"Subagent {session_id} tool call: {tool_name}")
+
+    def _on_subagent_part_delta(self, session_id: str, event_data: dict):
+        """Handle part_delta event for a subagent."""
+        index = event_data.get("index", 0)
+        delta = event_data.get("delta")
+
+        if delta is None:
+            return
+
+        content_delta = getattr(delta, 'content_delta', None)
+        thinking_parts = self._subagent_thinking_parts.get(session_id, set())
+        text_parts = self._subagent_text_parts.get(session_id, set())
+        tool_parts = self._subagent_tool_parts.get(session_id, {})
+
+        if index in thinking_parts:
+            if content_delta:
+                self.subagent_thinking_content.emit(session_id, content_delta)
+        elif index in text_parts:
+            if content_delta:
+                self.subagent_token.emit(session_id, content_delta)
+        elif index in tool_parts:
+            args_delta = getattr(delta, 'args_delta', None)
+            if args_delta:
+                tool_name = tool_parts.get(index, "unknown")
+                self.subagent_tool_args_delta.emit(session_id, tool_name, args_delta)
+
+    def _on_subagent_part_end(self, session_id: str, event_data: dict):
+        """Handle part_end event for a subagent."""
+        index = event_data.get("index", 0)
+
+        thinking_parts = self._subagent_thinking_parts.get(session_id, set())
+        text_parts = self._subagent_text_parts.get(session_id, set())
+        tool_parts = self._subagent_tool_parts.get(session_id, {})
+
+        if index in thinking_parts:
+            thinking_parts.discard(index)
+            self._subagent_thinking_parts[session_id] = thinking_parts
+            self.subagent_thinking_complete.emit(session_id)
+        elif index in text_parts:
+            text_parts.discard(index)
+            self._subagent_text_parts[session_id] = text_parts
+        elif index in tool_parts:
+            tool_name = tool_parts.pop(index, "unknown")
+            self._subagent_tool_parts[session_id] = tool_parts
+            self.subagent_tool_complete.emit(session_id, tool_name)
+
+    async def _handle_pre_tool_call(
+        self,
+        tool_name: str,
+        tool_args: dict,
+        context: Any = None,
+    ):
+        """Handle pre-tool-call callback to detect subagent invocations."""
+        if self._cancelled:
+            return
+
+        # Detect invoke_agent tool call - store prompt for when we see the stream events
+        if tool_name == "invoke_agent":
+            agent_name = tool_args.get("agent_name", "unknown")
+            prompt = tool_args.get("prompt", "")
+            # Store prompt so we can use it when we register the subagent from stream events
+            self._pending_subagent_prompts[agent_name] = prompt
+            logger.info(f"Detected invoke_agent for: {agent_name}")
+
     async def _handle_post_tool_call(
         self,
         tool_name: str,
@@ -412,22 +721,63 @@ class AgentWorker(QObject):
 
         Delegates extraction to ToolOutputExtractor (SoC) and emits signal
         with appropriate output type and metadata for UI rendering.
-        
+
         Note: file_edit outputs are handled via the message bus (DiffMessage)
         to capture the diff before it's stripped from the result.
         """
         if self._cancelled:
             return
 
+        # Detect invoke_agent completion
+        if tool_name == "invoke_agent":
+            agent_name = tool_args.get("agent_name", "unknown")
+
+            # Find the session_id for this agent in our active subagents
+            session_id = None
+            for sid in list(self._active_subagents):
+                if sid.startswith(f"{agent_name}-session-"):
+                    session_id = sid
+                    break
+
+            if session_id:
+                # Clean up subagent tracking
+                self._active_subagents.discard(session_id)
+                self._subagent_thinking_parts.pop(session_id, None)
+                self._subagent_text_parts.pop(session_id, None)
+                self._subagent_tool_parts.pop(session_id, None)
+
+                # Extract response from result - handle various result types
+                response = ""
+                if result:
+                    if hasattr(result, 'response'):
+                        # InvokeAgentOutput model
+                        response = result.response or ""
+                    elif hasattr(result, 'output'):
+                        response = str(result.output) if result.output else ""
+                    elif isinstance(result, str):
+                        response = result
+                    elif isinstance(result, dict):
+                        response = result.get('response', result.get('output', str(result)))
+                    else:
+                        # Last resort - try to get string representation
+                        response = str(result)
+
+                logger.info(f"Subagent completed: {agent_name} ({session_id})")
+                self.subagent_complete.emit(session_id, agent_name, response)
+            else:
+                logger.warning(f"Could not find session for completed subagent: {agent_name}")
+
+            return  # Don't process as regular tool output
+
         try:
             from utils.tool_output_extractor import ToolOutputExtractor
 
             output_type, metadata = ToolOutputExtractor.extract(tool_name, tool_args, result)
-            
+
             # Skip file_edit - we get these from the message bus with the diff intact
             if output_type == "file_edit":
                 return
-                
+
             if output_type:
                 metadata["tool_name"] = tool_name
                 metadata["duration_ms"] = duration_ms

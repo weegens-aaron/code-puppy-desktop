@@ -214,24 +214,6 @@ class SkillsPanel(QWidget):
         folder_btn.clicked.connect(self._on_open_folder)
         header.addWidget(folder_btn)
 
-        # Refresh button
-        refresh_btn = QPushButton("↻")
-        refresh_btn.setFixedSize(28, 28)
-        refresh_btn.setToolTip("Refresh skills")
-        refresh_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS.bg_tertiary};
-                border-radius: 4px;
-            }}
-        """)
-        refresh_btn.clicked.connect(self._on_refresh)
-        header.addWidget(refresh_btn)
-
         layout.addLayout(header)
 
         # Splitter for list and preview

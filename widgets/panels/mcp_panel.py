@@ -109,23 +109,6 @@ class MCPPanel(QWidget):
         add_btn.clicked.connect(self._on_add_server)
         header.addWidget(add_btn)
 
-        refresh_btn = QPushButton("\u21bb")
-        refresh_btn.setFixedSize(28, 28)
-        refresh_btn.setToolTip("Refresh servers")
-        refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-            }
-        """)
-        refresh_btn.clicked.connect(self._load_servers)
-        header.addWidget(refresh_btn)
-
         layout.addLayout(header)
 
         # Splitter for list and details (vertical for sidebar)

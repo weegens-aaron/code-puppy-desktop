@@ -21,7 +21,7 @@ class AgentBridge(QObject):
     the GUI to react to agent events.
     """
 
-    # Forward signals from worker (for convenience)
+    # Forward signals from worker (main agent)
     token_received = Signal(str)
     thinking_started = Signal()
     thinking_content = Signal(str)
@@ -34,6 +34,21 @@ class AgentBridge(QObject):
     response_complete = Signal(str)
     error_occurred = Signal(str)
     agent_busy = Signal(bool)
+
+    # Subagent signals
+    subagent_started = Signal(str, str, str)  # session_id, agent_name, prompt
+    subagent_token = Signal(str, str)  # session_id, content_delta
+    subagent_thinking_started = Signal(str)  # session_id
+    subagent_thinking_content = Signal(str, str)  # session_id, content_delta
+    subagent_thinking_complete = Signal(str)  # session_id
+    subagent_tool_started = Signal(str, str, str)  # session_id, tool_name, tool_args
+    subagent_tool_args_delta = Signal(str, str, str)  # session_id, tool_name, args_delta
+    subagent_tool_complete = Signal(str, str)  # session_id, tool_name
+    subagent_tool_output = Signal(str, str, str, dict)  # session_id, tool_name, output_type, metadata
+    subagent_complete = Signal(str, str, str)  # session_id, agent_name, response
+
+    # Ask user question signal
+    ask_user_question_requested = Signal(str)  # questions_json
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -54,6 +69,21 @@ class AgentBridge(QObject):
         self._worker.response_complete.connect(self.response_complete)
         self._worker.error_occurred.connect(self.error_occurred)
         self._worker.agent_busy.connect(self.agent_busy)
+
+        # Connect subagent signals
+        self._worker.subagent_started.connect(self.subagent_started)
+        self._worker.subagent_token.connect(self.subagent_token)
+        self._worker.subagent_thinking_started.connect(self.subagent_thinking_started)
+        self._worker.subagent_thinking_content.connect(self.subagent_thinking_content)
+        self._worker.subagent_thinking_complete.connect(self.subagent_thinking_complete)
+        self._worker.subagent_tool_started.connect(self.subagent_tool_started)
+        self._worker.subagent_tool_args_delta.connect(self.subagent_tool_args_delta)
+        self._worker.subagent_tool_complete.connect(self.subagent_tool_complete)
+        self._worker.subagent_tool_output.connect(self.subagent_tool_output)
+        self._worker.subagent_complete.connect(self.subagent_complete)
+
+        # Connect ask_user_question signal
+        self._worker.ask_user_question_requested.connect(self.ask_user_question_requested)
 
         # Start the worker thread
         self._worker.start_worker()
@@ -83,6 +113,14 @@ class AgentBridge(QObject):
     def clear_history(self):
         """Clear the agent's conversation history."""
         self._worker.clear_agent()
+
+    def set_question_response(self, response: dict):
+        """Send the user's response to an ask_user_question request.
+
+        Args:
+            response: Dict with structure from QuestionDialog.get_results()
+        """
+        self._worker.set_question_response(response)
 
     def cleanup(self):
         """Clean up resources. Call this before the application exits."""

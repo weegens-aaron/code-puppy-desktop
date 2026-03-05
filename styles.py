@@ -659,6 +659,46 @@ def get_tab_widget_style() -> str:
     """
 
 
+def get_chat_tab_style() -> str:
+    """Get chat tab widget style with close button support."""
+    colors = _theme_manager.current
+    return f"""
+        QTabWidget::pane {{
+            border: none;
+            background-color: {colors.bg_primary};
+        }}
+        QTabBar {{
+            background-color: {colors.bg_secondary};
+        }}
+        QTabBar::tab {{
+            background-color: {colors.bg_secondary};
+            color: {colors.text_secondary};
+            padding: 8px 16px;
+            margin-right: 2px;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+        }}
+        QTabBar::tab:selected {{
+            background-color: {colors.bg_primary};
+            color: {colors.text_primary};
+            border-bottom: 2px solid {colors.accent_primary};
+        }}
+        QTabBar::tab:hover:!selected {{
+            background-color: {colors.bg_tertiary};
+            color: {colors.text_primary};
+        }}
+        QTabBar::close-button {{
+            image: none;
+            padding: 4px;
+        }}
+        QTabBar::close-button:hover {{
+            background-color: {colors.accent_error};
+            border-radius: 2px;
+        }}
+    """
+
+
 # =============================================================================
 # Attachment Chip Styles
 # =============================================================================

@@ -144,23 +144,6 @@ class SessionsPanel(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        refresh_btn = QPushButton("\u21bb")
-        refresh_btn.setFixedSize(28, 28)
-        refresh_btn.setToolTip("Refresh sessions")
-        refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #3d3d3d;
-                border-radius: 4px;
-            }
-        """)
-        refresh_btn.clicked.connect(self._load_sessions)
-        header.addWidget(refresh_btn)
-
         layout.addLayout(header)
 
         # Splitter for list and preview (vertical for sidebar)

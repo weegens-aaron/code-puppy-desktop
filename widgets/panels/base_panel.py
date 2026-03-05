@@ -92,26 +92,11 @@ def get_panel_stylesheet(include_checkbox: bool = False) -> str:
     return base_style
 
 
-def get_refresh_button_stylesheet() -> str:
-    """Get stylesheet for refresh button."""
-    return """
-        QPushButton {
-            background-color: transparent;
-            border: none;
-            font-size: 14px;
-        }
-        QPushButton:hover {
-            background-color: #3d3d3d;
-            border-radius: 4px;
-        }
-    """
-
-
 class BaseSidebarPanel(QWidget, metaclass=QWidgetABCMeta):
     """Abstract base class for sidebar panels.
 
     Provides common UI structure:
-    - Header with title and refresh button
+    - Header with title
     - Vertical splitter with list on top, details on bottom
     - Action buttons at bottom
 
@@ -160,13 +145,6 @@ class BaseSidebarPanel(QWidget, metaclass=QWidgetABCMeta):
         title_label.setStyleSheet(f"font-weight: bold; color: {COLORS.text_primary}; padding: 4px;")
         header.addWidget(title_label)
         header.addStretch()
-
-        refresh_btn = QPushButton("\u21bb")
-        refresh_btn.setFixedSize(28, 28)
-        refresh_btn.setToolTip(f"Refresh {self._title.lower()}")
-        refresh_btn.setStyleSheet(get_refresh_button_stylesheet())
-        refresh_btn.clicked.connect(self.refresh)
-        header.addWidget(refresh_btn)
 
         layout.addLayout(header)
 

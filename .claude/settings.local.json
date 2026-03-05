@@ -4,7 +4,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nFix module imports and add auto-install for dependencies\n\n- Convert all absolute imports \\(from desktop.X\\) to relative imports\n  since the plugin lives directly in the plugins directory, not in a\n  ''desktop'' package\n- Add auto-install of dependencies from requirements.txt on first run,\n  with support for both uv and pip package managers\n- Fix signal handler error when running agent in QThread by patching\n  signal.signal\\(\\) to be a no-op in worker threads\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(python -m py_compile:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Skill(code-puppy-plugin-dev)"
     ]
   }
 }
