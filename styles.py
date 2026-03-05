@@ -1096,7 +1096,9 @@ def get_sidebar_icon_button_style(active: bool = False) -> str:
     """
 
 
-# Backwards compatibility - these now call functions
+# DEPRECATED: These module-level constants are evaluated at import time.
+# They're kept for backwards compatibility but code should migrate to using
+# the function versions (get_main_window_style(), etc.) to support theme changes.
 MAIN_WINDOW_STYLE = get_main_window_style()
 SCROLL_AREA_STYLE = get_scroll_area_style()
 CONTENT_BROWSER_STYLE = get_content_browser_style()

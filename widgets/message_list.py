@@ -4,12 +4,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea, QFrame,
     QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 
 from models.message_model import MessageModel
 from models.data_types import Message
 from widgets.message_bubble import MessageWidget
-from styles import COLORS, SCROLL_AREA_STYLE, get_theme_manager
+from styles import COLORS, get_scroll_area_style, get_theme_manager
 
 
 class MessageListView(QScrollArea):
@@ -58,7 +58,7 @@ class MessageListView(QScrollArea):
 
     def _apply_styles(self):
         """Apply current theme styles."""
-        self.setStyleSheet(SCROLL_AREA_STYLE)
+        self.setStyleSheet(get_scroll_area_style())
 
     def _on_theme_changed(self, theme):
         """Update styles when theme changes."""
@@ -106,7 +106,6 @@ class MessageListView(QScrollArea):
         """Scroll to bottom if auto-scroll is enabled."""
         if not self._auto_scroll:
             return
-        from PySide6.QtCore import QTimer
         QTimer.singleShot(10, lambda: self.verticalScrollBar().setValue(
             self.verticalScrollBar().maximum()
         ))
@@ -115,6 +114,9 @@ class MessageListView(QScrollArea):
         """Remove all message widgets and reset layout."""
         for w in self._widgets:
             self._layout.removeWidget(w)
+            # Call explicit cleanup to remove theme listeners
+            if hasattr(w, 'cleanup'):
+                w.cleanup()
             w.deleteLater()
         self._widgets.clear()
         # Clear any remaining items (stretches) from layout
@@ -135,10 +137,18 @@ class MessageListView(QScrollArea):
         self._clear_widgets()
         self._auto_scroll = True  # Reset auto-scroll on clear
 
-    def __del__(self):
-        """Clean up theme listener."""
-        try:
-            if hasattr(self, '_theme_manager'):
+    def cleanup(self):
+        """Explicitly clean up resources. Call before discarding widget."""
+        # Clean up all message widgets
+        self._clear_widgets()
+        # Remove our own theme listener
+        if hasattr(self, '_theme_manager') and hasattr(self, '_on_theme_changed'):
+            try:
                 self._theme_manager.remove_listener(self._on_theme_changed)
-        except Exception:
-            pass
+            except Exception:
+                pass
+
+    def closeEvent(self, event):
+        """Clean up when widget is closed."""
+        self.cleanup()
+        super().closeEvent(event)

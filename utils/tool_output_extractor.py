@@ -4,7 +4,7 @@ Separates tool result parsing from transport/worker concerns (SoC).
 Single responsibility: transform tool results into UI-renderable data.
 """
 
-from typing import Any
+from typing import Any, Callable
 
 
 class ToolOutputExtractor:
@@ -16,7 +16,7 @@ class ToolOutputExtractor:
 
     # Tool name -> extractor function mapping
     # Allows extension without modifying class (Open/Closed)
-    EXTRACTORS: dict[str, callable] = {}
+    EXTRACTORS: dict[str, Callable[..., tuple[str, dict]]] = {}
 
     @classmethod
     def register(cls, *tool_names: str):

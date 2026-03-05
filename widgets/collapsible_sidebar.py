@@ -274,10 +274,15 @@ class CollapsibleSidebar(QWidget):
         self._update_icon_styles()
         self._sidebar_tabs.switch_to_tab(tab_name)
 
-    def __del__(self):
-        """Clean up theme listener."""
-        try:
-            if hasattr(self, '_theme_manager'):
+    def cleanup(self):
+        """Explicitly clean up resources. Call before discarding widget."""
+        if hasattr(self, '_theme_manager') and hasattr(self, '_on_theme_changed'):
+            try:
                 self._theme_manager.remove_listener(self._on_theme_changed)
-        except Exception:
-            pass
+            except Exception:
+                pass
+
+    def closeEvent(self, event):
+        """Clean up when widget is closed."""
+        self.cleanup()
+        super().closeEvent(event)
