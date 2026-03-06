@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QDir, QModelIndex
 from PySide6.QtGui import QAction
 
+from utils.system_open import open_with_default_app
+
 from styles import (
     get_file_tree_filter_style,
     get_file_tree_view_style,
@@ -59,6 +61,7 @@ class FileTree(QWidget):
         self._tree.setAnimated(True)
         self._tree.setIndentation(16)
         self._tree.setStyleSheet(get_file_tree_view_style())
+        self._tree.clicked.connect(self._on_item_clicked)
         self._tree.doubleClicked.connect(self._on_item_double_clicked)
         self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tree.customContextMenuRequested.connect(self._show_context_menu)
@@ -138,11 +141,23 @@ class FileTree(QWidget):
         if hasattr(self, '_selected_path') and self._selected_path:
             self.path_referenced.emit(self._selected_path)
 
-    def _on_item_double_clicked(self, index: QModelIndex):
-        """Handle item double-click."""
+    def _on_item_clicked(self, index: QModelIndex):
+        """Handle item single-click.
+
+        We treat single-click as "select" for in-app behavior.
+        """
         path = self._model.filePath(index)
         if os.path.isfile(path):
             self.file_selected.emit(path)
+
+    def _on_item_double_clicked(self, index: QModelIndex):
+        """Handle item double-click.
+
+        Double-click opens the file using the OS default application.
+        """
+        path = self._model.filePath(index)
+        if os.path.isfile(path):
+            open_with_default_app(path)
 
     def refresh(self):
         """Refresh the file tree."""
