@@ -247,6 +247,15 @@ class StreamingHandler(QObject):
         # Clear tracked message indices
         self.reset_indices()
 
+    def complete_response_empty(self):
+        """Handle response completion when no content was received.
+
+        This should rarely be called - errors should be caught and displayed
+        via error_occurred signal before reaching this point.
+        """
+        self.flush_and_stop()
+        self.reset_indices()
+
     def reset_indices(self):
         """Reset all tracked message indices."""
         self._current_thinking_index = None

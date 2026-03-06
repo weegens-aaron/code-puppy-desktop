@@ -378,19 +378,29 @@ def get_error_css() -> str:
         font-size: 14px;
     }}
     .error-message {{
-        color: {COLORS.text_secondary};
+        color: {COLORS.text_primary};
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 8px;
+    }}
+    .error-details {{
+        color: {COLORS.text_muted};
         font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 12px;
-        line-height: 1.4;
-        white-space: pre-wrap;
-        word-wrap: break-word;
+        font-size: 11px;
+        padding: 6px 8px;
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        margin-bottom: 8px;
+    }}
+    .error-details b {{
+        color: {COLORS.text_secondary};
     }}
     .error-hint {{
-        margin-top: 8px;
         padding-top: 8px;
         border-top: 1px solid {COLORS.border_subtle};
-        color: {COLORS.text_muted};
-        font-size: 11px;
+        color: {COLORS.accent_warning};
+        font-size: 12px;
+        font-style: italic;
     }}
 """
     )

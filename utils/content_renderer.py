@@ -31,6 +31,56 @@ class ContentRenderer:
         return wrap_html_with_css(escaped, css_styles.get_plain_text_css())
 
     @staticmethod
+    def _parse_error_message(error_message: str) -> dict:
+        """Parse an error message to extract structured information.
+
+        Returns:
+            Dict with keys: status_code, model_name, body, raw_message
+        """
+        import re
+
+        result = {
+            "status_code": None,
+            "model_name": None,
+            "body": None,
+            "raw_message": error_message
+        }
+
+        # Clean up tuple formatting like ('...',) or ("...",)
+        cleaned = error_message.strip()
+        if cleaned.startswith("(") and cleaned.endswith(",)"):
+            # Extract content from tuple
+            cleaned = cleaned[1:-2].strip()
+            if (cleaned.startswith("'") and cleaned.endswith("'")) or \
+               (cleaned.startswith('"') and cleaned.endswith('"')):
+                cleaned = cleaned[1:-1]
+
+        # Remove "Unexpected error: " prefix
+        if cleaned.lower().startswith("unexpected error:"):
+            cleaned = cleaned[17:].strip()
+
+        # Parse status_code: NNN pattern
+        status_match = re.search(r'status_code:\s*(\d+)', cleaned, re.IGNORECASE)
+        if status_match:
+            result["status_code"] = status_match.group(1)
+
+        # Parse model_name: ... pattern
+        model_match = re.search(r'model_name:\s*([^,]+)', cleaned, re.IGNORECASE)
+        if model_match:
+            result["model_name"] = model_match.group(1).strip()
+
+        # Parse body: ... pattern (rest of message after body:)
+        body_match = re.search(r'body:\s*(.+)$', cleaned, re.IGNORECASE)
+        if body_match:
+            result["body"] = body_match.group(1).strip()
+
+        # If no structured format found, use cleaned message
+        if not any([result["status_code"], result["model_name"], result["body"]]):
+            result["body"] = cleaned
+
+        return result
+
+    @staticmethod
     def render_error(error_message: str, error_type: str = "Error") -> str:
         """Render an error message prominently.
 
@@ -41,12 +91,34 @@ class ContentRenderer:
         Returns:
             HTML string with styled error display
         """
+        # Parse error message for structured display
+        parsed = ContentRenderer._parse_error_message(error_message)
+
+        # Build the main message
+        if parsed["body"]:
+            main_message = parsed["body"]
+        else:
+            main_message = parsed["raw_message"]
+
+        # Build details section
+        details_parts = []
+        if parsed["status_code"]:
+            details_parts.append(f"<b>Status:</b> {escape_html(parsed['status_code'])}")
+        if parsed["model_name"]:
+            details_parts.append(f"<b>Model:</b> {escape_html(parsed['model_name'])}")
+
+        details_html = ""
+        if details_parts:
+            details_html = f'<div class="error-details">{" &bull; ".join(details_parts)}</div>'
+
         # Parse common error patterns to provide hints
         hint = ""
         error_lower = error_message.lower()
 
-        if "400" in error_message or "bad request" in error_lower:
-            hint = "The request was malformed. This may be due to invalid parameters or message format."
+        if "does not appear to support" in error_lower:
+            hint = "This model may not support the requested feature (e.g., image inputs). Try a different model."
+        elif "400" in error_message or "bad request" in error_lower:
+            hint = "The request was malformed. Check your input format."
         elif "401" in error_message or "unauthorized" in error_lower:
             hint = "Authentication failed. Check your API key configuration."
         elif "403" in error_message or "forbidden" in error_lower:
@@ -72,7 +144,8 @@ class ContentRenderer:
                     <span class="error-icon">\u26A0\uFE0F</span>
                     <span class="error-title">{escape_html(error_type)}</span>
                 </div>
-                <div class="error-message">{escape_html(error_message)}</div>
+                <div class="error-message">{escape_html(main_message)}</div>
+                {details_html}
                 {hint_html}
             </div>
         '''

@@ -121,6 +121,10 @@ class CodePuppyApp(QMainWindow):
         # Ask user question signal
         self.agent_bridge.ask_user_question_requested.connect(self._on_ask_user_question)
 
+        # Hook-forwarded signals
+        self.agent_bridge.agent_reloaded.connect(self._on_agent_reloaded)
+        self.agent_bridge.agent_exception_occurred.connect(self._on_agent_exception)
+
     def _setup_ui(self):
         """Set up the user interface."""
         central = QWidget()
@@ -516,17 +520,36 @@ class CodePuppyApp(QMainWindow):
     def _on_response_complete(self, response: str):
         """Handle response completion."""
         self._status.stop_activity()
-        self._streaming.complete_response(response)
-        self._status.show_message("Ready")
+
+        # Check if we got any content (streaming tokens or final response)
+        has_content = (
+            response.strip() or
+            self._streaming.assistant_message_index is not None
+        )
+
+        if has_content:
+            self._streaming.complete_response(response)
+            self._status.show_message("Ready")
+        else:
+            # No content received - errors should already be displayed via _on_error
+            # Just clean up streaming state
+            self._streaming.complete_response_empty()
+            self._status.show_message("Ready")
 
     def _on_error(self, error: str):
         """Handle agent error."""
         self._status.stop_activity()
         self._status.show_message(f"Error: {error[:50]}...")
 
+        # Flush any pending tokens and reset streaming state
+        self._streaming.flush_and_stop()
+
         # Categorize error
         error_type = self._categorize_error(error)
         self._streaming.add_error(error, error_type)
+
+        # Reset streaming indices for next message
+        self._streaming.reset_indices()
 
     def _categorize_error(self, error: str) -> str:
         """Categorize an error message."""
@@ -567,6 +590,18 @@ class CodePuppyApp(QMainWindow):
         self.attach_btn.setEnabled(enabled)
         self.cancel_btn.setEnabled(not enabled)
         self.input_field.setEnabled(enabled)
+
+    def _on_agent_reloaded(self):
+        """Handle agent reload - refresh panels."""
+        logger.info("Agent reloaded, refreshing panels")
+        self.sidebar.refresh_all()
+
+    def _on_agent_exception(self, error: str):
+        """Handle agent exception from hook (backup error capture)."""
+        logger.info(f"Agent exception from hook: {error}")
+        # Only show if we're currently processing (to avoid duplicate errors)
+        if self.agent_bridge.is_busy():
+            self._on_error(error)
 
     # -------------------------------------------------------------------------
     # Ask user question

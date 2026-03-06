@@ -14,6 +14,17 @@ from services.agent_worker import AgentWorker
 logger = logging.getLogger(__name__)
 
 
+class HookSignalEmitter(QObject):
+    """Signal emitter for hook-to-GUI communication.
+
+    This object is registered with the plugin's callback system to receive
+    notifications from hooks and emit Qt signals for thread-safe UI updates.
+    """
+
+    agent_reloaded = Signal()  # Agent/model was reloaded
+    agent_exception_occurred = Signal(str)  # Exception message from agent
+
+
 class AgentBridge(QObject):
     """Thread-safe bridge to agent execution.
 
@@ -38,8 +49,16 @@ class AgentBridge(QObject):
     # Ask user question signal
     ask_user_question_requested = Signal(str)  # questions_json
 
+    # Hook-forwarded signals
+    agent_reloaded = Signal()  # From agent_reload hook
+    agent_exception_occurred = Signal(str)  # From agent_exception hook
+
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
+
+        # Create hook signal emitter and register with plugin callbacks
+        self._hook_emitter = HookSignalEmitter()
+        self._register_hook_emitter()
 
         # Create worker and move to thread
         self._worker = AgentWorker()
@@ -61,8 +80,21 @@ class AgentBridge(QObject):
         # Connect ask_user_question signal
         self._worker.ask_user_question_requested.connect(self.ask_user_question_requested)
 
+        # Connect hook emitter signals to our signals
+        self._hook_emitter.agent_reloaded.connect(self.agent_reloaded)
+        self._hook_emitter.agent_exception_occurred.connect(self.agent_exception_occurred)
+
         # Start the worker thread
         self._worker.start_worker()
+
+    def _register_hook_emitter(self):
+        """Register the hook signal emitter with the plugin callback system."""
+        try:
+            from register_callbacks import set_gui_signal_emitter
+            set_gui_signal_emitter(self._hook_emitter)
+            logger.info("Registered hook signal emitter")
+        except ImportError as e:
+            logger.warning(f"Could not register hook signal emitter: {e}")
 
     def prewarm(self):
         """Pre-initialize agent to reduce first-message latency."""

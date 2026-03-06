@@ -14,6 +14,101 @@ from PySide6.QtCore import QObject, Signal
 logger = logging.getLogger(__name__)
 
 
+class ErrorCapturer:
+    """Captures error messages from both logging and MessageQueue."""
+
+    ERROR_KEYWORDS = [
+        'error', 'failed', 'status_code', 'unexpected',
+        'bad request', 'unauthorized', 'forbidden',
+        'does not appear to support', 'api error',
+        'usage limit', 'mcp server error', 'connection'
+    ]
+
+    def __init__(self):
+        self.captured_errors: list[str] = []
+        self._lock = threading.Lock()
+        self._original_emit = None
+        self._patched = False
+
+    def _is_error_message(self, content: str) -> bool:
+        """Check if content looks like an error message."""
+        content_lower = content.lower()
+        return any(kw in content_lower for kw in self.ERROR_KEYWORDS)
+
+    def capture(self, msg: str):
+        """Capture an error message."""
+        if msg and self._is_error_message(msg):
+            with self._lock:
+                # Avoid duplicates
+                if msg not in self.captured_errors:
+                    self.captured_errors.append(msg)
+                    logger.info(f"ErrorCapturer captured: {msg[:80]}...")
+
+    def patch_message_queue(self):
+        """Patch the MessageQueue.emit to capture error messages."""
+        if self._patched:
+            return
+
+        try:
+            from code_puppy.messaging import get_global_queue, MessageType
+
+            queue = get_global_queue()
+            self._original_emit = queue.emit
+
+            def patched_emit(message):
+                # Call original
+                self._original_emit(message)
+                # Capture error messages
+                if hasattr(message, 'type') and hasattr(message, 'content'):
+                    if message.type in (MessageType.ERROR, MessageType.WARNING, MessageType.INFO):
+                        content = str(message.content) if message.content else ""
+                        self.capture(content)
+
+            queue.emit = patched_emit
+            self._patched = True
+            logger.info("Patched MessageQueue.emit for error capture")
+        except Exception as e:
+            logger.warning(f"Failed to patch MessageQueue: {e}")
+
+    def unpatch_message_queue(self):
+        """Restore original MessageQueue.emit."""
+        if not self._patched or self._original_emit is None:
+            return
+
+        try:
+            from code_puppy.messaging import get_global_queue
+            queue = get_global_queue()
+            queue.emit = self._original_emit
+            self._patched = False
+        except Exception:
+            pass
+
+    def get_last_error(self) -> str | None:
+        with self._lock:
+            return self.captured_errors[-1] if self.captured_errors else None
+
+    def get_all_errors(self) -> list[str]:
+        with self._lock:
+            return list(self.captured_errors)
+
+    def clear(self):
+        with self._lock:
+            self.captured_errors.clear()
+
+
+# Global error capturer instance
+_error_capturer: ErrorCapturer | None = None
+
+
+def get_error_capturer() -> ErrorCapturer:
+    """Get or create the global error capturer."""
+    global _error_capturer
+    if _error_capturer is None:
+        _error_capturer = ErrorCapturer()
+        _error_capturer.patch_message_queue()
+    return _error_capturer
+
+
 @contextmanager
 def _disable_signal_handlers():
     """Disable signal.signal() when running in a non-main thread.
@@ -74,10 +169,17 @@ class AgentWorker(QObject):
         self._question_event = threading.Event()
         self._question_response: Optional[dict] = None
 
+        # Error capture from agent_run_end hook
+        self._last_agent_error: Optional[str] = None
+        self._last_agent_success: bool = True
+
     def start_worker(self):
         """Start the worker thread with its own event loop."""
         if self._thread is not None and self._thread.is_alive():
             return
+
+        # Initialize error capturer to patch MessageQueue early
+        get_error_capturer()
 
         # Patch ask_user_question handler to use GUI
         self._patch_ask_user_question()
@@ -279,55 +381,92 @@ class AgentWorker(QObject):
     async def _execute_agent(self, prompt: str, attachments: list):
         """Execute agent asynchronously in the worker thread."""
         from code_puppy import callbacks
-        from code_puppy.messaging import get_message_bus, DiffMessage
+        from code_puppy.messaging import (
+            get_message_bus, DiffMessage, TextMessage, MessageLevel,
+            get_global_queue, MessageType,  # Legacy queue for error capture
+        )
 
         self._running = True
         self._cancelled = False
         self._current_response = ""
         self.agent_busy.emit(True)
 
-        # Convert file paths to BinaryContent
-        binary_attachments = self._convert_attachments(attachments)
-        logger.info(f"Sending prompt with {len(binary_attachments)} attachments (from {len(attachments)} paths)")
-
-        # Track registered callbacks for cleanup
+        # Track state for cleanup - must be set before any potential exception
         stream_callback_registered = False
         tool_callback_registered = False
+        agent_run_end_registered = False
+        poll_task = None
+        message_bus = None
+        legacy_queue = None
 
-        # Set up message bus for diff messages
-        message_bus = get_message_bus()
-        # Mark renderer active so messages are queued instead of buffered
-        message_bus.mark_renderer_active()
-        logger.info(f"MessageBus marked active, has_active_renderer={message_bus.has_active_renderer}")
+        # Clear previous error state
+        self._last_agent_error = None
+        self._last_agent_success = True
+        self._captured_error_messages: list[str] = []  # Capture errors from legacy queue
 
-        # Retry configuration
-        max_retries = 3
-        retry_delay = 2.0  # seconds
-
-        poll_count = 0
-        async def poll_message_bus():
-            """Poll message bus for DiffMessage events."""
-            nonlocal poll_count
-            while self._running and not self._cancelled:
-                poll_count += 1
-                if poll_count % 100 == 0:  # Log every 100 polls (~1 second)
-                    logger.debug(f"MessageBus poll #{poll_count}, queue_size={message_bus.outgoing_qsize}")
-                msg = message_bus.get_message_nowait()
-                if msg is not None:
-                    logger.info(f"MessageBus received: {type(msg).__name__}")
-                    if isinstance(msg, DiffMessage):
-                        # Extract diff text from diff_lines
-                        diff_text = "\n".join(
-                            (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
-                            for line in msg.diff_lines
-                        )
-                        self.diff_received.emit(msg.path, msg.operation, diff_text)
-                await asyncio.sleep(0.01)
-
-        # Start message bus polling task
-        poll_task = asyncio.create_task(poll_message_bus())
+        # Clear and get error capturer for capturing error messages
+        error_capturer = get_error_capturer()
+        error_capturer.clear()
 
         try:
+            # Convert file paths to BinaryContent
+            binary_attachments = self._convert_attachments(attachments)
+            logger.info(f"Sending prompt with {len(binary_attachments)} attachments (from {len(attachments)} paths)")
+
+            # Set up message bus for diff messages
+            message_bus = get_message_bus()
+            # Mark renderer active so messages are queued instead of buffered
+            message_bus.mark_renderer_active()
+            logger.info(f"MessageBus marked active, has_active_renderer={message_bus.has_active_renderer}")
+
+            # Retry configuration
+            max_retries = 3
+            retry_delay = 2.0  # seconds
+
+            # Get legacy queue for error message capture
+            legacy_queue = get_global_queue()
+
+            poll_count = 0
+            async def poll_message_bus():
+                """Poll message bus for DiffMessage and legacy queue for error messages."""
+                nonlocal poll_count
+                while self._running and not self._cancelled:
+                    poll_count += 1
+                    if poll_count % 100 == 0:  # Log every 100 polls (~1 second)
+                        logger.debug(f"MessageBus poll #{poll_count}, queue_size={message_bus.outgoing_qsize}")
+
+                    # Poll new message bus for diff messages
+                    msg = message_bus.get_message_nowait()
+                    if msg is not None:
+                        logger.debug(f"MessageBus received: {type(msg).__name__}")
+                        if isinstance(msg, DiffMessage):
+                            # Extract diff text from diff_lines
+                            diff_text = "\n".join(
+                                (("+" if line.type == "add" else "-" if line.type == "remove" else " ") + line.content)
+                                for line in msg.diff_lines
+                            )
+                            self.diff_received.emit(msg.path, msg.operation, diff_text)
+
+                    # Poll legacy queue for error messages
+                    legacy_msg = legacy_queue.get_nowait()
+                    if legacy_msg is not None:
+                        # Check for error/warning messages
+                        if legacy_msg.type in (MessageType.ERROR, MessageType.WARNING, MessageType.INFO):
+                            content = str(legacy_msg.content) if legacy_msg.content else ""
+                            # Check for error indicators
+                            if any(indicator in content.lower() for indicator in [
+                                'unexpected error', 'error:', 'failed', 'status_code:',
+                                'bad request', 'unauthorized', 'forbidden', 'not found',
+                                'does not appear to support', 'api error', 'connection error',
+                                'usage limit', 'mcp server error'
+                            ]):
+                                logger.info(f"Captured error from legacy queue: {content[:100]}")
+                                self._captured_error_messages.append(content)
+
+                    await asyncio.sleep(0.01)
+
+            # Start message bus polling task
+            poll_task = asyncio.create_task(poll_message_bus())
             # Register callback for streaming events
             callbacks.register_callback("stream_event", self._handle_stream_event)
             stream_callback_registered = True
@@ -335,6 +474,10 @@ class AgentWorker(QObject):
             # Register callback for tool outputs
             callbacks.register_callback("post_tool_call", self._handle_post_tool_call)
             tool_callback_registered = True
+
+            # Register callback for agent run completion (captures errors)
+            callbacks.register_callback("agent_run_end", self._handle_agent_run_end)
+            agent_run_end_registered = True
 
             agent = self.get_agent()
             if not agent:
@@ -355,11 +498,57 @@ class AgentWorker(QObject):
                     if self._cancelled:
                         return
 
+                    # Check for error indicators in the result
+                    if result:
+                        # Check common error attributes
+                        if hasattr(result, 'error') and result.error:
+                            error_msg = str(result.error)
+                            logger.error(f"Agent returned error in result: {error_msg}")
+                            self.error_occurred.emit(error_msg)
+                            return
+
+                        if hasattr(result, 'status') and result.status == 'error':
+                            error_msg = getattr(result, 'message', 'Unknown error')
+                            logger.error(f"Agent returned error status: {error_msg}")
+                            self.error_occurred.emit(str(error_msg))
+                            return
+
                     # Extract response text
                     if result and hasattr(result, 'output'):
                         response_text = str(result.output) if result.output else self._current_response
                     else:
                         response_text = self._current_response
+
+                    # Check if agent_run_end captured an error (error swallowed by agent code)
+                    if not response_text.strip() and not self._current_response.strip():
+                        # Priority 1: Error from agent_run_end hook
+                        if self._last_agent_error:
+                            logger.warning(f"Agent completed with error (from hook): {self._last_agent_error}")
+                            self.error_occurred.emit(self._last_agent_error)
+                            return
+
+                        # Priority 2: Error messages captured from message bus
+                        if self._captured_error_messages:
+                            error_msg = self._captured_error_messages[-1]
+                            logger.warning(f"Agent completed with error (from message bus): {error_msg}")
+                            self.error_occurred.emit(error_msg)
+                            return
+
+                        # Priority 3: Errors captured from MessageQueue
+                        captured_error = error_capturer.get_last_error()
+                        if captured_error:
+                            logger.warning(f"Agent completed with error (from capturer): {captured_error}")
+                            self.error_occurred.emit(captured_error)
+                            return
+
+                        # Priority 4: agent_run_end reported failure
+                        if not self._last_agent_success:
+                            logger.warning("Agent completed unsuccessfully but no error details")
+                            self.error_occurred.emit("Agent request failed - check console output for details")
+                            return
+
+                        # Last resort: emit empty response (app.py will handle)
+                        logger.warning("Agent completed with no response content")
 
                     self.response_complete.emit(response_text)
                     return  # Success, exit retry loop
@@ -387,21 +576,25 @@ class AgentWorker(QObject):
             logger.error(f"Agent error: {e}", exc_info=True)
             self.error_occurred.emit(str(e))
         finally:
-            # Stop message bus polling
-            poll_task.cancel()
-            try:
-                await poll_task
-            except asyncio.CancelledError:
-                pass
+            # Stop message bus polling (if started)
+            if poll_task is not None:
+                poll_task.cancel()
+                try:
+                    await poll_task
+                except asyncio.CancelledError:
+                    pass
 
-            # Mark renderer inactive
-            message_bus.mark_renderer_inactive()
+            # Mark renderer inactive (if message_bus was created)
+            if message_bus is not None:
+                message_bus.mark_renderer_inactive()
 
             # Unregister callbacks
             if stream_callback_registered:
                 callbacks.unregister_callback("stream_event", self._handle_stream_event)
             if tool_callback_registered:
                 callbacks.unregister_callback("post_tool_call", self._handle_post_tool_call)
+            if agent_run_end_registered:
+                callbacks.unregister_callback("agent_run_end", self._handle_agent_run_end)
 
             self._running = False
             self.agent_busy.emit(False)
@@ -543,6 +736,38 @@ class AgentWorker(QObject):
                 self.tool_output_received.emit(tool_name, output_type, metadata)
         except Exception as e:
             logger.error(f"Error handling post_tool_call: {e}", exc_info=True)
+
+    async def _handle_agent_run_end(
+        self,
+        agent_name: str,
+        model_name: str,
+        session_id: str | None = None,
+        success: bool = True,
+        error: Exception | None = None,
+        response_text: str | None = None,
+        metadata: dict | None = None,
+    ):
+        """Handle agent_run_end callback to capture errors.
+
+        This callback fires at the end of run_with_mcp (in finally block),
+        giving us access to any error that occurred, even if it was caught
+        and not re-raised.
+        """
+        self._last_agent_success = success
+        if error:
+            # Format the error message
+            error_str = str(error)
+            # Handle tuple-like error args
+            if hasattr(error, 'args') and error.args:
+                if len(error.args) == 1:
+                    error_str = str(error.args[0])
+                else:
+                    error_str = str(error.args)
+            self._last_agent_error = error_str
+            logger.info(f"agent_run_end captured error: {error_str[:200]}")
+        elif not success:
+            self._last_agent_error = "Agent run failed (no error details)"
+            logger.info("agent_run_end: success=False but no error provided")
 
     def cancel(self):
         """Cancel the current operation."""

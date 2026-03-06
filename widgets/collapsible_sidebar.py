@@ -7,26 +7,18 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QFrame, QGraphicsDropShadowEffect,
 )
-from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Signal, Qt, QPropertyAnimation, QEasingCurve, QSize
+from PySide6.QtGui import QColor, QIcon
 
 from widgets.sidebar_tabs import SidebarTabs
 from styles import (
     get_sidebar_container_style, get_sidebar_toggle_button_style,
-    get_sidebar_icon_button_style, get_theme_manager,
+    get_sidebar_icon_button_style, get_theme_manager, COLORS,
 )
+from utils.icons import get_sidebar_icon, has_icon, SIDEBAR_ICONS
 
 
-# Tab icons for collapsed mode
-TAB_ICONS = {
-    'files': '📁',
-    'sessions': '💬',
-    'agents': '🐕',
-    'models': '🤖',
-    'skills': '⚡',
-    'mcp': '🔌',
-}
-
+# Tab names and tooltips
 TAB_NAMES = ['files', 'sessions', 'agents', 'models', 'skills', 'mcp']
 TAB_TOOLTIPS = {
     'files': 'Files (Workspace)',
@@ -35,6 +27,16 @@ TAB_TOOLTIPS = {
     'models': 'Models',
     'skills': 'Skills',
     'mcp': 'MCP Servers',
+}
+
+# Fallback emoji icons (used if SVG not available)
+TAB_ICONS_EMOJI = {
+    'files': '📁',
+    'sessions': '💬',
+    'agents': '🐕',
+    'models': '🤖',
+    'skills': '⚡',
+    'mcp': '🔌',
 }
 
 
@@ -111,10 +113,14 @@ class CollapsibleSidebar(QWidget):
         # Tab icons
         self._icon_buttons: dict[str, QPushButton] = {}
         for tab_name in TAB_NAMES:
-            btn = QPushButton(TAB_ICONS[tab_name])
+            btn = QPushButton()
             btn.setToolTip(TAB_TOOLTIPS[tab_name])
             btn.setStyleSheet(get_sidebar_icon_button_style(active=tab_name == self._current_tab))
             btn.clicked.connect(lambda checked, t=tab_name: self._on_icon_clicked(t))
+
+            # Try to use SVG icon, fall back to emoji
+            self._set_button_icon(btn, tab_name, active=tab_name == self._current_tab)
+
             icon_layout.addWidget(btn)
             self._icon_buttons[tab_name] = btn
 
@@ -175,10 +181,35 @@ class CollapsibleSidebar(QWidget):
         self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style())
         self._update_icon_styles()
 
+    def _set_button_icon(self, btn: QPushButton, tab_name: str, active: bool = False):
+        """Set icon on a button, using SVG if available, else emoji.
+
+        Args:
+            btn: The button to set icon on
+            tab_name: Tab identifier
+            active: Whether this is the active tab
+        """
+        icon_name = SIDEBAR_ICONS.get(tab_name)
+        color = COLORS.accent_primary if active else COLORS.text_muted
+
+        if icon_name and has_icon(icon_name):
+            icon = get_sidebar_icon(tab_name, color=color, size=20)
+            if isinstance(icon, QIcon):
+                btn.setIcon(icon)
+                btn.setIconSize(QSize(20, 20))
+                btn.setText("")  # Clear any text
+                return
+
+        # Fallback to emoji
+        btn.setIcon(QIcon())  # Clear icon
+        btn.setText(TAB_ICONS_EMOJI.get(tab_name, '?'))
+
     def _update_icon_styles(self):
         """Update icon button styles based on active tab."""
         for tab_name, btn in self._icon_buttons.items():
-            btn.setStyleSheet(get_sidebar_icon_button_style(active=tab_name == self._current_tab))
+            active = tab_name == self._current_tab
+            btn.setStyleSheet(get_sidebar_icon_button_style(active=active))
+            self._set_button_icon(btn, tab_name, active=active)
 
     def _on_tab_changed(self, index: int):
         """Handle tab change in SidebarTabs."""
