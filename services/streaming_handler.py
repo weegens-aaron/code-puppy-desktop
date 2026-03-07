@@ -45,6 +45,17 @@ class StreamingHandler(QObject):
         """Get the token timer for cleanup."""
         return self._token_timer
 
+    def set_message_model(self, model: MessageModel):
+        """Switch to a different message model (for tab switching).
+
+        Args:
+            model: The new message model to use
+        """
+        # Flush any pending tokens to the old model first
+        self.flush_and_stop()
+        self.reset_indices()
+        self._model = model
+
     # -------------------------------------------------------------------------
     # Token Streaming
     # -------------------------------------------------------------------------

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QToolBar, QStatusBar, QPushButton, QTextEdit,
-    QSplitter, QFileDialog, QFrame,
+    QSplitter, QFileDialog, QFrame, QTabWidget,
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
@@ -27,7 +27,6 @@ from services.streaming_handler import StreamingHandler
 from services.session_manager import SessionManager
 from windows.dialogs.settings_dialog import SettingsDialog
 from windows.dialogs.help_dialog import HelpDialog
-from windows.dialogs.question_dialog import show_question_dialog
 from styles import (
     COLORS, get_main_window_style, get_send_button_style,
     get_cancel_button_style, get_attach_button_style,
@@ -35,6 +34,7 @@ from styles import (
     get_attachment_chip_style, get_attachment_label_style,
     get_attachment_remove_style,
     get_modern_input_container_style, get_modern_input_field_style,
+    get_tab_widget_style,
 )
 from code_puppy.config import get_puppy_name
 from code_puppy.agents import get_current_agent
@@ -146,9 +146,18 @@ class CodePuppyApp(QMainWindow):
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(0)
 
-        # Message list (single chat view)
+        # Tabbed chat area
+        self.chat_tabs = QTabWidget()
+        self.chat_tabs.setTabsClosable(False)
+        self.chat_tabs.setDocumentMode(True)
+        self.chat_tabs.setStyleSheet(get_tab_widget_style())
+
+        # Create chat tab
         self.message_list = MessageListView()
-        chat_layout.addWidget(self.message_list, stretch=1)
+        self.message_list.question_answered.connect(self._on_question_answered)
+        self.chat_tabs.addTab(self.message_list, "Chat")
+
+        chat_layout.addWidget(self.chat_tabs, stretch=1)
 
         # Input area
         input_widget = self._create_input_area()
@@ -610,22 +619,20 @@ class CodePuppyApp(QMainWindow):
     def _on_ask_user_question(self, questions_json: str):
         """Handle ask_user_question tool request.
 
-        Shows a dialog for the user to answer questions and sends the response
-        back to the agent.
+        Adds an interactive question message to the chat for inline response.
         """
         try:
             questions = json.loads(questions_json)
-            logger.info(f"Showing question dialog with {len(questions)} questions")
+            logger.info(f"Adding inline question with {len(questions)} questions")
 
-            # Show the dialog and get results
-            result = show_question_dialog(questions, self)
-
-            # Send response back to agent
-            if result is None:
-                result = {"cancelled": True, "answers": []}
-
-            self.agent_bridge.set_question_response(result)
-            logger.info(f"Question response sent: cancelled={result.get('cancelled', False)}")
+            # Add question message to chat (will create QuestionWidget)
+            self.message_list.message_model.add_message(
+                Message(
+                    role=MessageRole.QUESTION,
+                    content="",
+                    metadata={"questions": questions}
+                )
+            )
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse questions JSON: {e}")
@@ -633,6 +640,15 @@ class CodePuppyApp(QMainWindow):
         except Exception as e:
             logger.error(f"Error handling ask_user_question: {e}", exc_info=True)
             self.agent_bridge.set_question_response({"cancelled": True, "answers": []})
+
+    def _on_question_answered(self, result: dict):
+        """Handle user's answer to an inline question.
+
+        Args:
+            result: Dict with structure {"cancelled": bool, "answers": [...]}
+        """
+        logger.info(f"Question answered: cancelled={result.get('cancelled', False)}")
+        self.agent_bridge.set_question_response(result)
 
     # -------------------------------------------------------------------------
     # Theme refresh
@@ -644,6 +660,7 @@ class CodePuppyApp(QMainWindow):
         self.send_btn.setStyleSheet(get_send_button_style())
         self.cancel_btn.setStyleSheet(get_cancel_button_style())
         self.attach_btn.setStyleSheet(get_attach_button_style())
+        self.chat_tabs.setStyleSheet(get_tab_widget_style())
 
         input_container = self.input_field.parent()
         if input_container and input_container.parent():

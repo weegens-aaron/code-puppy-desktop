@@ -7,8 +7,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QTimer
 
 from models.message_model import MessageModel
-from models.data_types import Message
+from models.data_types import Message, MessageRole
 from widgets.message_bubble import MessageWidget
+from widgets.question_widget import QuestionWidget
 from styles import COLORS, get_scroll_area_style, get_theme_manager
 
 
@@ -16,6 +17,7 @@ class MessageListView(QScrollArea):
     """Scroll area containing message widgets with rich content."""
 
     copy_requested = Signal(str)
+    question_answered = Signal(dict)  # Emitted when user answers an inline question
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -81,8 +83,13 @@ class MessageListView(QScrollArea):
 
     def _add_widget(self, message: Message):
         """Add a message widget."""
-        widget = MessageWidget(message)
-        widget.copy_clicked.connect(self.copy_requested)
+        # Use QuestionWidget for question messages
+        if message.role == MessageRole.QUESTION:
+            widget = QuestionWidget(message, on_submit=self._on_question_answered)
+            widget.answer_submitted.connect(self.question_answered)
+        else:
+            widget = MessageWidget(message)
+            widget.copy_clicked.connect(self.copy_requested)
 
         # Remove stretch, add widget, re-add stretch
         if self._layout.count() > 0:
@@ -93,6 +100,11 @@ class MessageListView(QScrollArea):
         self._widgets.append(widget)
 
         self._scroll_to_bottom()
+
+    def _on_question_answered(self, result: dict):
+        """Handle question answer from inline widget."""
+        # Signal is also emitted, this is for internal tracking if needed
+        pass
 
     def _on_scroll(self, value: int):
         """Track scroll position to manage auto-scroll."""

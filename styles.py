@@ -277,6 +277,10 @@ def get_role_style(role: str) -> RoleStyle:
             background_color=colors.role_error_bg,
             text_color=colors.role_error_text,
         ),
+        "question": RoleStyle(
+            background_color=colors.bg_secondary,
+            text_color=colors.accent_primary,
+        ),
     }
     return role_styles.get(role, role_styles["assistant"])
 

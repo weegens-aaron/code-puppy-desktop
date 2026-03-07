@@ -30,6 +30,14 @@ class SessionManager(QObject):
         super().__init__(parent)
         self._model = message_model
 
+    def set_message_model(self, model: MessageModel):
+        """Switch to a different message model (for tab switching).
+
+        Args:
+            model: The new message model to use
+        """
+        self._model = model
+
     # -------------------------------------------------------------------------
     # Session Management
     # -------------------------------------------------------------------------

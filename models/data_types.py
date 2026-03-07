@@ -15,6 +15,7 @@ class MessageRole(Enum):
     TOOL_CALL = "tool_call"
     TOOL_OUTPUT = "tool_output"  # Formatted tool results (diff, shell, etc.)
     ERROR = "error"  # Error messages
+    QUESTION = "question"  # Agent asking user a question (interactive)
 
 
 class ToolOutputType(Enum):
