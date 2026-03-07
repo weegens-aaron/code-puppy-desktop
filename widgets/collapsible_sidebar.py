@@ -15,7 +15,7 @@ from styles import (
     get_sidebar_container_style, get_sidebar_toggle_button_style,
     get_sidebar_icon_button_style, get_theme_manager, COLORS,
 )
-from utils.icons import get_sidebar_icon, has_icon, SIDEBAR_ICONS
+from utils.icons import get_sidebar_icon, has_icon
 
 
 # Tab names and tooltips
@@ -70,7 +70,7 @@ class CollapsibleSidebar(QWidget):
         self._root_path = root_path or os.getcwd()
         self._collapsed = False
         self._expanded_width = 280
-        self._collapsed_width = 56
+        self._collapsed_width = 68  # Larger to fit 1.5x bigger icons
         self._current_tab = 'files'
 
         self._setup_ui()
@@ -93,8 +93,8 @@ class CollapsibleSidebar(QWidget):
         self._icon_rail.setStyleSheet(get_sidebar_container_style())
 
         icon_layout = QVBoxLayout(self._icon_rail)
-        icon_layout.setContentsMargins(6, 8, 6, 8)
-        icon_layout.setSpacing(4)
+        icon_layout.setContentsMargins(2, 8, 12, 8)  # left, top, right, bottom
+        icon_layout.setSpacing(6)
 
         # Toggle button at top
         self._toggle_btn = QPushButton("☰")
@@ -186,17 +186,18 @@ class CollapsibleSidebar(QWidget):
 
         Args:
             btn: The button to set icon on
-            tab_name: Tab identifier
+            tab_name: Tab identifier (icon files match tab names)
             active: Whether this is the active tab
         """
-        icon_name = SIDEBAR_ICONS.get(tab_name)
-        color = COLORS.accent_primary if active else COLORS.text_muted
+        # Use brighter color for better visibility against dark backgrounds
+        color = COLORS.accent_primary if active else COLORS.text_primary
 
-        if icon_name and has_icon(icon_name):
-            icon = get_sidebar_icon(tab_name, color=color, size=20)
+        if has_icon(tab_name):
+            # 1.5x larger icons (20 -> 30)
+            icon = get_sidebar_icon(tab_name, color=color, size=30)
             if isinstance(icon, QIcon):
                 btn.setIcon(icon)
-                btn.setIconSize(QSize(20, 20))
+                btn.setIconSize(QSize(30, 30))
                 btn.setText("")  # Clear any text
                 return
 

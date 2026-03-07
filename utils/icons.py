@@ -115,15 +115,8 @@ def has_icon(name: str) -> bool:
     return (ICONS_DIR / f"{name}.svg").exists()
 
 
-# Icon name mappings for sidebar tabs
-SIDEBAR_ICONS = {
-    'files': 'folder',
-    'sessions': 'chat',
-    'agents': 'dog',      # Code Puppy mascot
-    'models': 'robot',
-    'skills': 'lightning',
-    'mcp': 'plug',
-}
+# Sidebar tab names (icon files are named to match)
+SIDEBAR_ICONS = ['files', 'sessions', 'agents', 'models', 'skills', 'mcp']
 
 # Fallback emoji icons if SVG not available
 FALLBACK_ICONS = {
@@ -140,6 +133,7 @@ def get_sidebar_icon(tab_name: str, color: str = "#a0a0a0", size: int = 20) -> Q
     """Get icon for a sidebar tab.
 
     Returns QIcon if SVG available, otherwise returns emoji string.
+    Icon files are named to match tab names (e.g., files.svg, agents.svg).
 
     Args:
         tab_name: Tab identifier (files, sessions, agents, etc.)
@@ -149,7 +143,6 @@ def get_sidebar_icon(tab_name: str, color: str = "#a0a0a0", size: int = 20) -> Q
     Returns:
         QIcon or emoji string
     """
-    icon_name = SIDEBAR_ICONS.get(tab_name)
-    if icon_name and has_icon(icon_name):
-        return get_icon(icon_name, color, size)
+    if has_icon(tab_name):
+        return get_icon(tab_name, color, size)
     return FALLBACK_ICONS.get(tab_name, '?')

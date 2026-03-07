@@ -1055,13 +1055,13 @@ def get_sidebar_toggle_button_style() -> str:
     return f"""
         QPushButton {{
             background-color: {colors.bg_tertiary};
-            color: {colors.text_secondary};
+            color: {colors.text_primary};
             border: none;
-            border-radius: 4px;
-            padding: 8px;
-            font-size: 14px;
-            min-width: 32px;
-            min-height: 32px;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 20px;
+            min-width: 44px;
+            min-height: 44px;
         }}
         QPushButton:hover {{
             background-color: {colors.accent_primary};
@@ -1073,21 +1073,23 @@ def get_sidebar_toggle_button_style() -> str:
 def get_sidebar_icon_button_style(active: bool = False) -> str:
     """Get sidebar icon button style for collapsed mode."""
     colors = _theme_manager.current
-    bg = colors.accent_primary if active else "transparent"
-    text = "white" if active else colors.text_secondary
-    hover_bg = colors.accent_primary_hover if active else colors.bg_tertiary
+    # Light gray background for selected, transparent for inactive
+    bg = "#4a4a4a" if active else "transparent"
+    # Use brighter color for better visibility against dark backgrounds
+    text = "white" if active else colors.text_primary
+    hover_bg = "#5a5a5a" if active else colors.bg_tertiary
     return f"""
         QPushButton {{
             background-color: {bg};
             color: {text};
             border: none;
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 18px;
-            min-width: 44px;
-            min-height: 44px;
-            max-width: 44px;
-            max-height: 44px;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 27px;
+            min-width: 52px;
+            min-height: 52px;
+            max-width: 52px;
+            max-height: 52px;
         }}
         QPushButton:hover {{
             background-color: {hover_bg};
