@@ -230,7 +230,7 @@ def get_cancel_button_style() -> str:
 
 def get_attach_button_style() -> str:
     """Get attach button style for current theme."""
-    return get_button_style("ghost", "icon-lg")
+    return get_button_style("neutral", "sm")
 
 
 # =============================================================================

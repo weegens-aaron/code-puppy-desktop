@@ -101,10 +101,10 @@ class CollapsibleSidebar(QWidget):
         icon_layout.setContentsMargins(4, 8, 0, 8)  # left, top, right, bottom - no right margin for tab connection
         icon_layout.setSpacing(6)
 
-        # Toggle button at top
-        self._toggle_btn = QPushButton("☰")
-        self._toggle_btn.setToolTip("Toggle sidebar (Ctrl+B)")
-        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style())
+        # Toggle button at top (starts expanded, so show pressed state)
+        self._toggle_btn = QPushButton("◀")
+        self._toggle_btn.setToolTip("Collapse sidebar (Ctrl+B)")
+        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style(expanded=True))
         self._toggle_btn.clicked.connect(self.toggle)
         icon_layout.addWidget(self._toggle_btn)
 
@@ -153,8 +153,6 @@ class CollapsibleSidebar(QWidget):
         self.setMinimumWidth(self._collapsed_width)
         self.setMaximumWidth(self._expanded_width + self._collapsed_width)
         self.setFixedWidth(self._expanded_width + self._collapsed_width)
-        self._toggle_btn.setText("◀")
-        self._toggle_btn.setToolTip("Collapse sidebar (Ctrl+B)")
 
     def _connect_signals(self):
         """Connect SidebarTabs signals to our forwarding signals."""
@@ -192,7 +190,7 @@ class CollapsibleSidebar(QWidget):
         self.setStyleSheet(get_sidebar_outer_style())
         self._icon_rail.setStyleSheet(get_icon_rail_style())
         self._content_wrapper.setStyleSheet(get_sidebar_container_style())
-        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style())
+        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style(expanded=not self._collapsed))
         self._update_icon_styles()
         self._apply_shadow()  # Reapply shadow for new theme
 
@@ -266,6 +264,7 @@ class CollapsibleSidebar(QWidget):
         self.setFixedWidth(self._collapsed_width)
         self._toggle_btn.setText("☰")
         self._toggle_btn.setToolTip("Expand sidebar (Ctrl+B)")
+        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style(expanded=False))
         self._update_icon_styles()  # Clear active state on all icons
         self.collapsed_changed.emit(True)
 
@@ -281,6 +280,7 @@ class CollapsibleSidebar(QWidget):
         self.setFixedWidth(self._expanded_width + self._collapsed_width)
         self._toggle_btn.setText("◀")
         self._toggle_btn.setToolTip("Collapse sidebar (Ctrl+B)")
+        self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style(expanded=True))
         self._update_icon_styles()  # Restore active state on current tab
         self.collapsed_changed.emit(False)
 

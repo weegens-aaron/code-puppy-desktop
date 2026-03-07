@@ -315,10 +315,19 @@ def get_sidebar_outer_style() -> str:
         """
 
 
-def get_sidebar_toggle_button_style() -> str:
-    """Get sidebar toggle button style - flat label like unselected tabs."""
-    # Toggle button is a flat label on the device body, like unselected tabs
-    return flat_icon_label_style(size=52, font_size=22, padding=12)
+def get_sidebar_toggle_button_style(expanded: bool = False) -> str:
+    """Get sidebar toggle button style.
+
+    Args:
+        expanded: If True, shows pressed/recessed state (dark pink).
+                  If False, shows flat state (on device body).
+    """
+    if expanded:
+        # Pressed/recessed state when sidebar is open
+        return inset_container_style(border_radius=12, bevel_width=2)
+    else:
+        # Flat state when sidebar is collapsed
+        return flat_icon_label_style(size=52, font_size=22, padding=12)
 
 
 def get_sidebar_icon_button_style(active: bool = False) -> str:
