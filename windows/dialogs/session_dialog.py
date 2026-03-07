@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, button_style
+from styles import COLORS, action_button
 from code_puppy.config import AUTOSAVE_DIR, rotate_autosave_id
 from code_puppy.session_storage import list_sessions, load_session
 
@@ -187,29 +187,20 @@ class SessionDialog(QDialog):
 
         # New session button
         new_btn = QPushButton("New Session")
-        new_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_warning,
-            text_color="white",
-        ))
+        new_btn.setStyleSheet(action_button("warning", "sm"))
         new_btn.clicked.connect(self._on_new_session)
         button_layout.addWidget(new_btn)
 
         # Load button
         self._load_btn = QPushButton("Load Session")
-        self._load_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_success,
-            text_color="white",
-        ))
+        self._load_btn.setStyleSheet(action_button("success", "sm"))
         self._load_btn.clicked.connect(self._on_load)
         button_layout.addWidget(self._load_btn)
 
         button_layout.addStretch()
 
         close_btn = QPushButton("Cancel")
-        close_btn.setStyleSheet(button_style(
-            bg_color=COLORS.bg_tertiary,
-            text_color=COLORS.text_primary,
-        ))
+        close_btn.setStyleSheet(action_button("neutral", "sm"))
         close_btn.clicked.connect(self.reject)
         button_layout.addWidget(close_btn)
 

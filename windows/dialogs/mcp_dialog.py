@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from styles import COLORS, button_style
+from styles import COLORS, action_button
 from code_puppy.mcp_.manager import get_mcp_manager, MCPManager
 from code_puppy.mcp_.managed_server import ServerConfig, ServerState
 
@@ -100,19 +100,12 @@ class AddServerDialog(QDialog):
         button_layout.addStretch()
 
         cancel_btn = QPushButton("Cancel")
-        cancel_btn.setStyleSheet(button_style(
-            bg_color=COLORS.bg_tertiary,
-            text_color=COLORS.text_primary,
-        ))
+        cancel_btn.setStyleSheet(action_button("neutral", "sm"))
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
 
         save_btn = QPushButton("Save")
-        save_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_primary,
-            text_color="white",
-            hover_color=COLORS.accent_primary_hover,
-        ))
+        save_btn.setStyleSheet(action_button("primary", "sm"))
         save_btn.clicked.connect(self._on_save)
         button_layout.addWidget(save_btn)
 
@@ -318,18 +311,12 @@ class MCPDialog(QDialog):
         top_layout = QHBoxLayout()
 
         add_btn = QPushButton("Add Server")
-        add_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_success,
-            text_color="white",
-        ))
+        add_btn.setStyleSheet(action_button("success", "sm"))
         add_btn.clicked.connect(self._on_add_server)
         top_layout.addWidget(add_btn)
 
         refresh_btn = QPushButton("Refresh")
-        refresh_btn.setStyleSheet(button_style(
-            bg_color=COLORS.bg_tertiary,
-            text_color=COLORS.text_primary,
-        ))
+        refresh_btn.setStyleSheet(action_button("neutral", "sm"))
         refresh_btn.clicked.connect(self._load_servers)
         top_layout.addWidget(refresh_btn)
 
@@ -378,47 +365,31 @@ class MCPDialog(QDialog):
 
         # Start/Stop button
         self._start_btn = QPushButton("Start")
-        self._start_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_success,
-            text_color="white",
-        ))
+        self._start_btn.setStyleSheet(action_button("success", "sm"))
         self._start_btn.clicked.connect(self._on_start_server)
         button_layout.addWidget(self._start_btn)
 
         self._stop_btn = QPushButton("Stop")
-        self._stop_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_warning,
-            text_color="white",
-        ))
+        self._stop_btn.setStyleSheet(action_button("warning", "sm"))
         self._stop_btn.clicked.connect(self._on_stop_server)
         button_layout.addWidget(self._stop_btn)
 
         # Edit button
         self._edit_btn = QPushButton("Edit")
-        self._edit_btn.setStyleSheet(button_style(
-            bg_color=COLORS.bg_tertiary,
-            text_color=COLORS.text_primary,
-        ))
+        self._edit_btn.setStyleSheet(action_button("neutral", "sm"))
         self._edit_btn.clicked.connect(self._on_edit_server)
         button_layout.addWidget(self._edit_btn)
 
         # Remove button
         self._remove_btn = QPushButton("Remove")
-        self._remove_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_error,
-            text_color="white",
-        ))
+        self._remove_btn.setStyleSheet(action_button("error", "sm"))
         self._remove_btn.clicked.connect(self._on_remove_server)
         button_layout.addWidget(self._remove_btn)
 
         button_layout.addStretch()
 
         close_btn = QPushButton("Close")
-        close_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_primary,
-            text_color="white",
-            hover_color=COLORS.accent_primary_hover,
-        ))
+        close_btn.setStyleSheet(action_button("primary", "sm"))
         close_btn.clicked.connect(self.accept)
         button_layout.addWidget(close_btn)
 

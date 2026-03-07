@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from styles import COLORS, button_style, get_theme_manager
+from styles import (
+    COLORS, button_style, get_theme_manager, action_button,
+    SIDEBAR_MATERIAL, SIDEBAR_HOVER, SIDEBAR_SELECTED,
+)
 
 
 # Combined metaclass to resolve conflict between Qt's metaclass and ABCMeta
@@ -21,6 +24,8 @@ class QWidgetABCMeta(type(QWidget), ABCMeta):
 def get_panel_stylesheet(include_checkbox: bool = False) -> str:
     """Generate common stylesheet for sidebar panels.
 
+    Uses SIDEBAR_MATERIAL from primitives for consistent neumorphic styling.
+
     Args:
         include_checkbox: Whether to include checkbox-specific styles
 
@@ -31,31 +36,26 @@ def get_panel_stylesheet(include_checkbox: bool = False) -> str:
     is_neu = theme.is_neumorphic
 
     if is_neu:
-        # Dark pink sidebar material - the whole sidebar is this color
-        sidebar_material = "#3a2832"
-        # Slightly lighter for hover/selection
-        sidebar_hover = "#4a3842"
-        sidebar_selected = "#5a4852"
-
         # Neumorphic style - flat non-rounded list items for consistency
+        # Uses sidebar material colors from primitives
         base_style = f"""
             QWidget {{
-                background-color: {sidebar_material};
+                background-color: {SIDEBAR_MATERIAL};
                 color: {COLORS.text_primary};
             }}
             QFrame {{
-                background-color: {sidebar_material};
+                background-color: {SIDEBAR_MATERIAL};
                 border: none;
             }}
             QSplitter {{
-                background-color: {sidebar_material};
+                background-color: {SIDEBAR_MATERIAL};
             }}
             QSplitter::handle {{
-                background-color: {sidebar_material};
+                background-color: {SIDEBAR_MATERIAL};
                 height: 6px;
             }}
             QListWidget {{
-                background-color: {sidebar_material};
+                background-color: {SIDEBAR_MATERIAL};
                 color: {COLORS.text_primary};
                 border: none;
                 border-radius: 0px;
@@ -70,16 +70,16 @@ def get_panel_stylesheet(include_checkbox: bool = False) -> str:
                 border-left: 3px solid transparent;
             }}
             QListWidget::item:selected {{
-                background-color: {sidebar_selected};
+                background-color: {SIDEBAR_SELECTED};
                 border-left: 3px solid {COLORS.accent_primary};
                 color: {COLORS.text_primary};
             }}
             QListWidget::item:hover:!selected {{
-                background-color: {sidebar_hover};
+                background-color: {SIDEBAR_HOVER};
                 border-left: 3px solid transparent;
             }}
             QTextEdit {{
-                background-color: {sidebar_hover};
+                background-color: {SIDEBAR_HOVER};
                 color: {COLORS.text_primary};
                 border: none;
                 border-radius: 0px;
@@ -291,11 +291,20 @@ class BaseSidebarPanel(QWidget, metaclass=QWidgetABCMeta):
         for btn_config in buttons:
             label = btn_config["label"]
             callback = btn_config["callback"]
-            style_kwargs = btn_config.get("style", {})
             tooltip = btn_config.get("tooltip", "")
 
             btn = QPushButton(label)
-            btn.setStyleSheet(button_style(**style_kwargs))
+
+            # Support new unified button system (variant) or legacy style dict
+            if "variant" in btn_config:
+                variant = btn_config["variant"]
+                size = btn_config.get("size", "sm")
+                btn.setStyleSheet(action_button(variant, size))
+            else:
+                # Legacy: style dict for backwards compatibility
+                style_kwargs = btn_config.get("style", {})
+                btn.setStyleSheet(button_style(**style_kwargs))
+
             if tooltip:
                 btn.setToolTip(tooltip)
             btn.clicked.connect(callback)

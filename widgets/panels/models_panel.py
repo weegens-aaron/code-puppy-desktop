@@ -50,10 +50,8 @@ class ModelsPanel(BaseSidebarPanel):
             {
                 "label": "Apply",
                 "callback": self._on_apply,
-                "style": {
-                    "bg_color": COLORS.accent_success,
-                    "text_color": "white",
-                },
+                "variant": "success",
+                "size": "sm",
                 "tooltip": "Apply selected model",
             }
         ]

@@ -221,9 +221,13 @@ class CollapsibleSidebar(QWidget):
         btn.setText(TAB_ICONS_EMOJI.get(tab_name, '?'))
 
     def _update_icon_styles(self):
-        """Update icon button styles based on active tab."""
+        """Update icon button styles based on active tab.
+
+        When collapsed, no tab should appear selected.
+        """
         for tab_name, btn in self._icon_buttons.items():
-            active = tab_name == self._current_tab
+            # Only show active state when expanded
+            active = (tab_name == self._current_tab) and not self._collapsed
             btn.setStyleSheet(get_sidebar_icon_button_style(active=active))
             self._set_button_icon(btn, tab_name, active=active)
 
@@ -262,6 +266,7 @@ class CollapsibleSidebar(QWidget):
         self.setFixedWidth(self._collapsed_width)
         self._toggle_btn.setText("☰")
         self._toggle_btn.setToolTip("Expand sidebar (Ctrl+B)")
+        self._update_icon_styles()  # Clear active state on all icons
         self.collapsed_changed.emit(True)
 
     def expand(self):
@@ -276,6 +281,7 @@ class CollapsibleSidebar(QWidget):
         self.setFixedWidth(self._expanded_width + self._collapsed_width)
         self._toggle_btn.setText("◀")
         self._toggle_btn.setToolTip("Collapse sidebar (Ctrl+B)")
+        self._update_icon_styles()  # Restore active state on current tab
         self.collapsed_changed.emit(False)
 
     @property

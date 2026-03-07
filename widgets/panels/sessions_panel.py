@@ -11,9 +11,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, button_style
+from styles import COLORS, SIDEBAR_HOVER, get_theme_manager, action_button
 from code_puppy.config import AUTOSAVE_DIR, rotate_autosave_id
 from code_puppy.session_storage import list_sessions, load_session
+from widgets.panels.base_panel import get_panel_stylesheet
 
 
 def _get_session_metadata(base_dir: Path, session_name: str) -> dict:
@@ -86,52 +87,7 @@ class SessionsPanel(QWidget):
 
     def _setup_ui(self):
         """Set up the panel UI."""
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-            }}
-            QFrame {{
-                background-color: {COLORS.bg_primary};
-                border: none;
-            }}
-            QSplitter {{
-                background-color: {COLORS.bg_primary};
-            }}
-            QSplitter::handle {{
-                background-color: {COLORS.border_subtle};
-                height: 2px;
-            }}
-            QListWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 0;
-                outline: none;
-            }}
-            QListWidget::item {{
-                padding: 6px;
-                border: none;
-                margin: 0;
-            }}
-            QListWidget::item:selected {{
-                background-color: {COLORS.accent_primary};
-                color: white;
-            }}
-            QListWidget::item:hover:!selected {{
-                background-color: {COLORS.bg_tertiary};
-            }}
-            QTextEdit {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 8px 0;
-            }}
-            QLabel {{
-                color: {COLORS.text_primary};
-                background-color: transparent;
-            }}
-        """)
+        self.setStyleSheet(get_panel_stylesheet())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -191,20 +147,14 @@ class SessionsPanel(QWidget):
 
         # New session button
         self._new_btn = QPushButton("New")
-        self._new_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_warning,
-            text_color="white",
-        ))
+        self._new_btn.setStyleSheet(action_button("warning", "sm"))
         self._new_btn.setToolTip("Start a new session")
         self._new_btn.clicked.connect(self._on_new_session)
         button_layout.addWidget(self._new_btn)
 
         # Load button
         self._load_btn = QPushButton("Resume")
-        self._load_btn.setStyleSheet(button_style(
-            bg_color=COLORS.accent_success,
-            text_color="white",
-        ))
+        self._load_btn.setStyleSheet(action_button("success", "sm"))
         self._load_btn.setToolTip("Resume selected session")
         self._load_btn.clicked.connect(self._on_load)
         button_layout.addWidget(self._load_btn)
@@ -304,9 +254,11 @@ class SessionsPanel(QWidget):
                 .replace(">", "&gt;")
                 .replace("\n", "<br>"))
 
+            # Use sidebar-appropriate background color
+            preview_bg = SIDEBAR_HOVER if get_theme_manager().is_neumorphic else COLORS.bg_tertiary
             html += f"""
             <p style="margin-top: 8px; margin-bottom: 2px;"><b>Last message:</b></p>
-            <div style="background-color: {COLORS.bg_tertiary}; padding: 6px;
+            <div style="background-color: {preview_bg}; padding: 6px;
                         border-radius: 4px; font-size: 11px;">
                 {last_message}
             </div>

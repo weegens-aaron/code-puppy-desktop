@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from styles import COLORS, get_theme_manager
+from styles import COLORS, get_theme_manager, action_button
 
 
 class HelpDialog(QDialog):
@@ -41,14 +41,14 @@ class HelpDialog(QDialog):
         button_layout = QHBoxLayout()
 
         github_btn = QPushButton("GitHub")
-        github_btn.setStyleSheet(self._get_secondary_button_style())
+        github_btn.setStyleSheet(action_button("neutral", "sm"))
         github_btn.clicked.connect(self._open_github)
         button_layout.addWidget(github_btn)
 
         button_layout.addStretch()
 
         close_btn = QPushButton("Close")
-        close_btn.setStyleSheet(self._get_primary_button_style())
+        close_btn.setStyleSheet(action_button("primary", "sm"))
         close_btn.clicked.connect(self.accept)
         button_layout.addWidget(close_btn)
 
@@ -110,35 +110,6 @@ class HelpDialog(QDialog):
                 color: {COLORS.text_primary};
             }}
         """)
-
-    def _get_primary_button_style(self) -> str:
-        return f"""
-            QPushButton {{
-                background-color: {COLORS.accent_primary};
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 20px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS.accent_primary_hover};
-            }}
-        """
-
-    def _get_secondary_button_style(self) -> str:
-        return f"""
-            QPushButton {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_primary};
-                border: 1px solid {COLORS.border_default};
-                border-radius: 4px;
-                padding: 8px 20px;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS.bg_secondary};
-            }}
-        """
 
     def _open_github(self):
         """Open GitHub repository in browser."""

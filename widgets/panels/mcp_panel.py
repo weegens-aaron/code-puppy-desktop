@@ -9,12 +9,13 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, button_style
+from styles import COLORS, icon_button, action_button
 from code_puppy.mcp_.manager import get_mcp_manager, MCPManager
 from code_puppy.mcp_.managed_server import ServerConfig, ServerState
 
 # Import the AddServerDialog from the dialogs module
 from windows.dialogs.mcp_dialog import AddServerDialog
+from widgets.panels.base_panel import get_panel_stylesheet
 
 
 class MCPPanel(QWidget):
@@ -30,52 +31,7 @@ class MCPPanel(QWidget):
 
     def _setup_ui(self):
         """Set up the panel UI."""
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-            }}
-            QFrame {{
-                background-color: {COLORS.bg_primary};
-                border: none;
-            }}
-            QSplitter {{
-                background-color: {COLORS.bg_primary};
-            }}
-            QSplitter::handle {{
-                background-color: {COLORS.border_subtle};
-                height: 2px;
-            }}
-            QListWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 0;
-                outline: none;
-            }}
-            QListWidget::item {{
-                padding: 6px;
-                border: none;
-                margin: 0;
-            }}
-            QListWidget::item:selected {{
-                background-color: {COLORS.accent_primary};
-                color: white;
-            }}
-            QListWidget::item:hover:!selected {{
-                background-color: {COLORS.bg_tertiary};
-            }}
-            QTextEdit {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 8px 0;
-            }}
-            QLabel {{
-                color: {COLORS.text_primary};
-                background-color: transparent;
-            }}
-        """)
+        self.setStyleSheet(get_panel_stylesheet())
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -93,19 +49,7 @@ class MCPPanel(QWidget):
         add_btn = QPushButton("+")
         add_btn.setFixedSize(28, 28)
         add_btn.setToolTip("Add server")
-        add_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS.accent_success};
-                color: white;
-                border: none;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: #3fb950;
-            }}
-        """)
+        add_btn.setStyleSheet(icon_button("success", "icon-sm", in_sidebar=True))
         add_btn.clicked.connect(self._on_add_server)
         header.addWidget(add_btn)
 
@@ -157,76 +101,28 @@ class MCPPanel(QWidget):
         self._start_btn = QPushButton("\u25b6")
         self._start_btn.setFixedSize(32, 28)
         self._start_btn.setToolTip("Start server")
-        self._start_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS.accent_success};
-                color: white;
-                border: none;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: #3fb950;
-            }}
-            QPushButton:disabled {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_muted};
-            }}
-        """)
+        self._start_btn.setStyleSheet(icon_button("success", "icon-md", in_sidebar=True))
         self._start_btn.clicked.connect(self._on_start_server)
         button_layout.addWidget(self._start_btn)
 
         self._stop_btn = QPushButton("\u25a0")
         self._stop_btn.setFixedSize(32, 28)
         self._stop_btn.setToolTip("Stop server")
-        self._stop_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS.accent_warning};
-                color: white;
-                border: none;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: #e5a00d;
-            }}
-            QPushButton:disabled {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_muted};
-            }}
-        """)
+        self._stop_btn.setStyleSheet(icon_button("warning", "icon-md", in_sidebar=True))
         self._stop_btn.clicked.connect(self._on_stop_server)
         button_layout.addWidget(self._stop_btn)
 
         self._edit_btn = QPushButton("\u270e")
         self._edit_btn.setFixedSize(32, 28)
         self._edit_btn.setToolTip("Edit server")
-        self._edit_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_primary};
-                border: none;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: #4d4d4d;
-            }}
-        """)
+        self._edit_btn.setStyleSheet(icon_button("neutral", "icon-md", in_sidebar=True))
         self._edit_btn.clicked.connect(self._on_edit_server)
         button_layout.addWidget(self._edit_btn)
 
         self._remove_btn = QPushButton("\u2715")
         self._remove_btn.setFixedSize(32, 28)
         self._remove_btn.setToolTip("Remove server")
-        self._remove_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS.accent_error};
-                color: white;
-                border: none;
-                border-radius: 4px;
-            }}
-            QPushButton:hover {{
-                background-color: #dc2626;
-            }}
-        """)
+        self._remove_btn.setStyleSheet(icon_button("error", "icon-md", in_sidebar=True))
         self._remove_btn.clicked.connect(self._on_remove_server)
         button_layout.addWidget(self._remove_btn)
 

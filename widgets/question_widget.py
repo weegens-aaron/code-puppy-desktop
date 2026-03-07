@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from models.data_types import Message, MessageRole
-from styles import COLORS, get_theme_manager
+from styles import COLORS, get_theme_manager, action_button
 
 
 class QuestionWidget(QFrame):
@@ -76,12 +76,12 @@ class QuestionWidget(QFrame):
         button_layout.addStretch()
 
         self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.setStyleSheet(self._get_button_style(primary=False))
+        self._cancel_btn.setStyleSheet(action_button("neutral", "sm"))
         self._cancel_btn.clicked.connect(self._on_cancel)
         button_layout.addWidget(self._cancel_btn)
 
         self._submit_btn = QPushButton("Submit")
-        self._submit_btn.setStyleSheet(self._get_button_style(primary=True))
+        self._submit_btn.setStyleSheet(action_button("primary", "sm"))
         self._submit_btn.clicked.connect(self._on_submit_clicked)
         button_layout.addWidget(self._submit_btn)
 
@@ -416,102 +416,6 @@ class QuestionWidget(QFrame):
                     background: transparent;
                 }}
             """)
-
-    def _get_button_style(self, primary: bool = False) -> str:
-        """Get button style."""
-        colors = get_theme_manager().current
-        if colors.is_neumorphic:
-            # Beveled button styles
-            if primary:
-                return f"""
-                    QPushButton {{
-                        background-color: {COLORS.accent_primary};
-                        color: white;
-                        border-top: 2px solid #f0a8b8;
-                        border-left: 2px solid #f0a8b8;
-                        border-bottom: 2px solid {COLORS.accent_primary_hover};
-                        border-right: 2px solid {COLORS.accent_primary_hover};
-                        border-radius: 10px;
-                        padding: 8px 16px;
-                        font-weight: bold;
-                    }}
-                    QPushButton:hover {{
-                        background-color: #e8a0b0;
-                    }}
-                    QPushButton:pressed {{
-                        border-top: 2px solid {COLORS.accent_primary_hover};
-                        border-left: 2px solid {COLORS.accent_primary_hover};
-                        border-bottom: 2px solid #f0a8b8;
-                        border-right: 2px solid #f0a8b8;
-                    }}
-                    QPushButton:disabled {{
-                        background-color: {COLORS.bg_tertiary};
-                        border: none;
-                        color: {COLORS.text_muted};
-                    }}
-                """
-            return f"""
-                QPushButton {{
-                    background-color: {colors.bg_primary};
-                    color: {COLORS.text_primary};
-                    border-top: 2px solid {colors.shadow_light};
-                    border-left: 2px solid {colors.shadow_light};
-                    border-bottom: 2px solid {colors.shadow_dark};
-                    border-right: 2px solid {colors.shadow_dark};
-                    border-radius: 10px;
-                    padding: 8px 16px;
-                }}
-                QPushButton:hover {{
-                    background-color: {colors.bg_tertiary};
-                }}
-                QPushButton:pressed {{
-                    border-top: 2px solid {colors.shadow_dark};
-                    border-left: 2px solid {colors.shadow_dark};
-                    border-bottom: 2px solid {colors.shadow_light};
-                    border-right: 2px solid {colors.shadow_light};
-                }}
-                QPushButton:disabled {{
-                    background-color: {COLORS.bg_secondary};
-                    border: none;
-                    color: {COLORS.text_muted};
-                }}
-            """
-        else:
-            if primary:
-                return f"""
-                    QPushButton {{
-                        background-color: {COLORS.accent_primary};
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        padding: 8px 16px;
-                        font-weight: bold;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {COLORS.accent_primary_hover};
-                    }}
-                    QPushButton:disabled {{
-                        background-color: {COLORS.bg_tertiary};
-                        color: {COLORS.text_muted};
-                    }}
-                """
-            return f"""
-                QPushButton {{
-                    background-color: {COLORS.bg_tertiary};
-                    color: {COLORS.text_primary};
-                    border: 1px solid {COLORS.border_default};
-                    border-radius: 6px;
-                    padding: 8px 16px;
-                }}
-                QPushButton:hover {{
-                    background-color: {COLORS.bg_secondary};
-                    border-color: {COLORS.accent_primary};
-                }}
-                QPushButton:disabled {{
-                    background-color: {COLORS.bg_secondary};
-                    color: {COLORS.text_muted};
-                }}
-            """
 
     def _get_option_style(self) -> str:
         """Get style for radio/checkbox options."""

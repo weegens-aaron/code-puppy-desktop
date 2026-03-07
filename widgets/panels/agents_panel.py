@@ -47,11 +47,8 @@ class AgentsPanel(BaseSidebarPanel):
             {
                 "label": "Select Agent",
                 "callback": self._on_select,
-                "style": {
-                    "bg_color": COLORS.accent_primary,
-                    "text_color": "white",
-                    "hover_color": COLORS.accent_primary_hover,
-                },
+                "variant": "primary",
+                "size": "sm",
                 "tooltip": "Switch to selected agent",
             }
         ]

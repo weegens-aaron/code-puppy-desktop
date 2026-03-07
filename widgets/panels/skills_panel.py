@@ -8,9 +8,10 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, get_theme_manager
+from styles import COLORS, get_theme_manager, SIDEBAR_HOVER, icon_button
 from services.skill_service import get_skill_service, SkillInfo
 from widgets.theme_aware import ThemeAwareMixin
+from widgets.panels.base_panel import get_panel_stylesheet
 
 
 class SkillsPanel(QWidget, ThemeAwareMixin):
@@ -29,53 +30,8 @@ class SkillsPanel(QWidget, ThemeAwareMixin):
         self.setup_theme_listener()
 
     def _apply_styles(self):
-        """Apply current theme styles."""
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-            }}
-            QFrame {{
-                background-color: {COLORS.bg_primary};
-                border: none;
-            }}
-            QSplitter {{
-                background-color: {COLORS.bg_primary};
-            }}
-            QSplitter::handle {{
-                background-color: {COLORS.border_subtle};
-                height: 2px;
-            }}
-            QListWidget {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 0;
-                outline: none;
-            }}
-            QListWidget::item {{
-                padding: 8px 12px;
-                border: none;
-                margin: 0;
-            }}
-            QListWidget::item:selected {{
-                background-color: {COLORS.accent_primary};
-                color: white;
-            }}
-            QListWidget::item:hover:!selected {{
-                background-color: {COLORS.bg_tertiary};
-            }}
-            QTextEdit {{
-                background-color: {COLORS.bg_primary};
-                color: {COLORS.text_primary};
-                border: none;
-                padding: 8px 0;
-            }}
-            QLabel {{
-                color: {COLORS.text_primary};
-                background-color: transparent;
-            }}
-        """)
+        """Apply current theme styles using shared panel stylesheet."""
+        self.setStyleSheet(get_panel_stylesheet())
 
     def _setup_ui(self):
         """Set up the panel UI."""
@@ -98,17 +54,7 @@ class SkillsPanel(QWidget, ThemeAwareMixin):
         folder_btn = QPushButton("📂")
         folder_btn.setFixedSize(28, 28)
         folder_btn.setToolTip("Open skills folder")
-        folder_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS.bg_tertiary};
-                border-radius: 4px;
-            }}
-        """)
+        folder_btn.setStyleSheet(icon_button("ghost", "icon-sm", in_sidebar=True))
         folder_btn.clicked.connect(self._on_open_folder)
         header.addWidget(folder_btn)
 
@@ -234,6 +180,8 @@ class SkillsPanel(QWidget, ThemeAwareMixin):
     def _render_no_skills_help(self) -> str:
         """Render help text when no skills are found."""
         skills_dir = self._skill_service.skills_directory
+        # Use sidebar-appropriate background for code blocks
+        code_bg = SIDEBAR_HOVER if get_theme_manager().is_neumorphic else COLORS.bg_tertiary
         return f"""
         <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
             <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">No Skills Found</h3>
@@ -242,7 +190,7 @@ class SkillsPanel(QWidget, ThemeAwareMixin):
             </p>
             <p style="color: {COLORS.text_muted}; font-size: 11px; margin-top: 12px;">
                 Create skills in:<br/>
-                <code style="background: {COLORS.bg_tertiary}; padding: 2px 6px; border-radius: 3px;">
+                <code style="background: {code_bg}; padding: 2px 6px; border-radius: 3px;">
                     {skills_dir}
                 </code>
             </p>
