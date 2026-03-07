@@ -375,55 +375,200 @@ class QuestionWidget(QFrame):
 
     def _apply_styles(self):
         """Apply theme styles."""
-        self.setStyleSheet(f"""
-            QuestionWidget {{
-                background-color: {COLORS.bg_secondary};
-                border-left: 3px solid {COLORS.accent_primary};
-                border-radius: 0px;
-                margin: 2px 8px;
-            }}
-        """)
+        colors = get_theme_manager().current
+        if colors.is_neumorphic:
+            self.setStyleSheet(f"""
+                QuestionWidget {{
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:1,
+                        stop:0 {colors.shadow_light},
+                        stop:0.15 {colors.bg_primary},
+                        stop:0.85 {colors.bg_primary},
+                        stop:1 {colors.shadow_dark}
+                    );
+                    border-left: 3px solid {COLORS.accent_primary};
+                    border-radius: 12px;
+                    margin: 4px 8px;
+                }}
+                QuestionWidget QWidget {{
+                    background: transparent;
+                }}
+                QuestionWidget QLabel {{
+                    background: transparent;
+                }}
+                QuestionWidget QFrame {{
+                    background: transparent;
+                    border: none;
+                }}
+            """)
+        else:
+            self.setStyleSheet(f"""
+                QuestionWidget {{
+                    background-color: {COLORS.bg_secondary};
+                    border-left: 3px solid {COLORS.accent_primary};
+                    border-radius: 0px;
+                    margin: 2px 8px;
+                }}
+                QuestionWidget QWidget {{
+                    background: transparent;
+                }}
+                QuestionWidget QLabel {{
+                    background: transparent;
+                }}
+            """)
 
     def _get_button_style(self, primary: bool = False) -> str:
         """Get button style."""
-        if primary:
+        colors = get_theme_manager().current
+        if colors.is_neumorphic:
+            # Beveled button styles
+            if primary:
+                return f"""
+                    QPushButton {{
+                        background-color: {COLORS.accent_primary};
+                        color: white;
+                        border-top: 2px solid #f0a8b8;
+                        border-left: 2px solid #f0a8b8;
+                        border-bottom: 2px solid {COLORS.accent_primary_hover};
+                        border-right: 2px solid {COLORS.accent_primary_hover};
+                        border-radius: 10px;
+                        padding: 8px 16px;
+                        font-weight: bold;
+                    }}
+                    QPushButton:hover {{
+                        background-color: #e8a0b0;
+                    }}
+                    QPushButton:pressed {{
+                        border-top: 2px solid {COLORS.accent_primary_hover};
+                        border-left: 2px solid {COLORS.accent_primary_hover};
+                        border-bottom: 2px solid #f0a8b8;
+                        border-right: 2px solid #f0a8b8;
+                    }}
+                    QPushButton:disabled {{
+                        background-color: {COLORS.bg_tertiary};
+                        border: none;
+                        color: {COLORS.text_muted};
+                    }}
+                """
             return f"""
                 QPushButton {{
-                    background-color: {COLORS.accent_primary};
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
+                    background-color: {colors.bg_primary};
+                    color: {COLORS.text_primary};
+                    border-top: 2px solid {colors.shadow_light};
+                    border-left: 2px solid {colors.shadow_light};
+                    border-bottom: 2px solid {colors.shadow_dark};
+                    border-right: 2px solid {colors.shadow_dark};
+                    border-radius: 10px;
                     padding: 8px 16px;
-                    font-weight: bold;
                 }}
                 QPushButton:hover {{
-                    background-color: {COLORS.accent_primary_hover};
+                    background-color: {colors.bg_tertiary};
+                }}
+                QPushButton:pressed {{
+                    border-top: 2px solid {colors.shadow_dark};
+                    border-left: 2px solid {colors.shadow_dark};
+                    border-bottom: 2px solid {colors.shadow_light};
+                    border-right: 2px solid {colors.shadow_light};
                 }}
                 QPushButton:disabled {{
-                    background-color: {COLORS.bg_tertiary};
+                    background-color: {COLORS.bg_secondary};
+                    border: none;
                     color: {COLORS.text_muted};
                 }}
             """
-        return f"""
-            QPushButton {{
-                background-color: {COLORS.bg_tertiary};
-                color: {COLORS.text_primary};
-                border: 1px solid {COLORS.border_default};
-                border-radius: 6px;
-                padding: 8px 16px;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS.bg_secondary};
-                border-color: {COLORS.accent_primary};
-            }}
-            QPushButton:disabled {{
-                background-color: {COLORS.bg_secondary};
-                color: {COLORS.text_muted};
-            }}
-        """
+        else:
+            if primary:
+                return f"""
+                    QPushButton {{
+                        background-color: {COLORS.accent_primary};
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        padding: 8px 16px;
+                        font-weight: bold;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {COLORS.accent_primary_hover};
+                    }}
+                    QPushButton:disabled {{
+                        background-color: {COLORS.bg_tertiary};
+                        color: {COLORS.text_muted};
+                    }}
+                """
+            return f"""
+                QPushButton {{
+                    background-color: {COLORS.bg_tertiary};
+                    color: {COLORS.text_primary};
+                    border: 1px solid {COLORS.border_default};
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                }}
+                QPushButton:hover {{
+                    background-color: {COLORS.bg_secondary};
+                    border-color: {COLORS.accent_primary};
+                }}
+                QPushButton:disabled {{
+                    background-color: {COLORS.bg_secondary};
+                    color: {COLORS.text_muted};
+                }}
+            """
 
     def _get_option_style(self) -> str:
         """Get style for radio/checkbox options."""
+        colors = get_theme_manager().current
+        if colors.is_neumorphic:
+            return f"""
+                QRadioButton, QCheckBox {{
+                    color: {COLORS.text_primary};
+                    padding: 6px 4px;
+                    font-size: 13px;
+                    spacing: 8px;
+                    background: transparent;
+                }}
+                QRadioButton:hover, QCheckBox:hover {{
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:1,
+                        stop:0 {colors.shadow_light},
+                        stop:0.5 {colors.bg_primary},
+                        stop:1 {colors.shadow_dark}
+                    );
+                    border-radius: 8px;
+                }}
+                QRadioButton::indicator, QCheckBox::indicator {{
+                    width: 18px;
+                    height: 18px;
+                }}
+                QRadioButton::indicator:checked {{
+                    background-color: {COLORS.accent_primary};
+                    border: none;
+                    border-radius: 9px;
+                }}
+                QRadioButton::indicator:unchecked {{
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:1,
+                        stop:0 {colors.shadow_dark},
+                        stop:0.5 {colors.bg_primary},
+                        stop:1 {colors.shadow_light}
+                    );
+                    border: none;
+                    border-radius: 9px;
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {COLORS.accent_primary};
+                    border: none;
+                    border-radius: 5px;
+                }}
+                QCheckBox::indicator:unchecked {{
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:1,
+                        stop:0 {colors.shadow_dark},
+                        stop:0.5 {colors.bg_primary},
+                        stop:1 {colors.shadow_light}
+                    );
+                    border: none;
+                    border-radius: 5px;
+                }}
+            """
         return f"""
             QRadioButton, QCheckBox {{
                 color: {COLORS.text_primary};
@@ -463,6 +608,28 @@ class QuestionWidget(QFrame):
 
     def _get_input_style(self) -> str:
         """Get style for text input."""
+        colors = get_theme_manager().current
+        if colors.is_neumorphic:
+            # Simple flat style inside the already-styled container to avoid gradient clash
+            return f"""
+                QLineEdit {{
+                    background: {colors.bg_secondary};
+                    color: {COLORS.text_primary};
+                    border: 1px solid {colors.shadow_dark};
+                    border-radius: 10px;
+                    padding: 6px 12px;
+                    font-size: 13px;
+                }}
+                QLineEdit:focus {{
+                    background: {colors.bg_tertiary};
+                    border-color: {COLORS.accent_primary};
+                }}
+                QLineEdit:disabled {{
+                    background: transparent;
+                    border-color: transparent;
+                    color: {COLORS.text_muted};
+                }}
+            """
         return f"""
             QLineEdit {{
                 background-color: {COLORS.bg_tertiary};

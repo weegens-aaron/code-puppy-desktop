@@ -12,10 +12,12 @@ from PySide6.QtGui import QColor, QIcon
 
 from widgets.sidebar_tabs import SidebarTabs
 from styles import (
-    get_sidebar_container_style, get_sidebar_toggle_button_style,
-    get_sidebar_icon_button_style, get_theme_manager, COLORS,
+    get_sidebar_container_style, get_sidebar_outer_style, get_icon_rail_style,
+    get_sidebar_toggle_button_style, get_sidebar_icon_button_style,
+    get_theme_manager, COLORS,
 )
 from utils.icons import get_sidebar_icon, has_icon
+from utils.neumorphic_effects import apply_neumorphic_shadow, NeuStyle
 
 
 # Tab names and tooltips
@@ -83,17 +85,20 @@ class CollapsibleSidebar(QWidget):
 
     def _setup_ui(self):
         """Set up the collapsible sidebar UI."""
+        # Apply outer style with border to this widget
+        self.setStyleSheet(get_sidebar_outer_style())
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Icon rail (always visible in collapsed mode)
+        # Icon rail (always visible in collapsed mode) - darker bg so active tab pops out
         self._icon_rail = QFrame()
         self._icon_rail.setFixedWidth(self._collapsed_width)
-        self._icon_rail.setStyleSheet(get_sidebar_container_style())
+        self._icon_rail.setStyleSheet(get_icon_rail_style())
 
         icon_layout = QVBoxLayout(self._icon_rail)
-        icon_layout.setContentsMargins(2, 8, 12, 8)  # left, top, right, bottom
+        icon_layout.setContentsMargins(4, 8, 0, 8)  # left, top, right, bottom - no right margin for tab connection
         icon_layout.setSpacing(6)
 
         # Toggle button at top
@@ -130,6 +135,7 @@ class CollapsibleSidebar(QWidget):
 
         # Content panel (SidebarTabs, hidden when collapsed)
         self._content_wrapper = QFrame()
+        self._content_wrapper.setObjectName("content_wrapper")
         self._content_wrapper.setStyleSheet(get_sidebar_container_style())
 
         content_layout = QVBoxLayout(self._content_wrapper)
@@ -168,18 +174,27 @@ class CollapsibleSidebar(QWidget):
 
     def _apply_shadow(self):
         """Apply shadow to the sidebar."""
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(20)
-        shadow.setOffset(4, 0)
-        shadow.setColor(QColor(0, 0, 0, 40))
-        self.setGraphicsEffect(shadow)
+        theme = get_theme_manager()
+        if theme.is_neumorphic:
+            # No shadow - the panel is a recessed pocket, not a floating element
+            # The inset bevel on the content panel creates the recessed look
+            self.setGraphicsEffect(None)
+        else:
+            # Standard drop shadow for non-neumorphic themes
+            shadow = QGraphicsDropShadowEffect(self)
+            shadow.setBlurRadius(20)
+            shadow.setOffset(4, 0)
+            shadow.setColor(QColor(0, 0, 0, 40))
+            self.setGraphicsEffect(shadow)
 
     def _on_theme_changed(self, theme):
         """Update styles when theme changes."""
-        self._icon_rail.setStyleSheet(get_sidebar_container_style())
+        self.setStyleSheet(get_sidebar_outer_style())
+        self._icon_rail.setStyleSheet(get_icon_rail_style())
         self._content_wrapper.setStyleSheet(get_sidebar_container_style())
         self._toggle_btn.setStyleSheet(get_sidebar_toggle_button_style())
         self._update_icon_styles()
+        self._apply_shadow()  # Reapply shadow for new theme
 
     def _set_button_icon(self, btn: QPushButton, tab_name: str, active: bool = False):
         """Set icon on a button, using SVG if available, else emoji.

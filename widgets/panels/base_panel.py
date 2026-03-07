@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from styles import COLORS, button_style
+from styles import COLORS, button_style, get_theme_manager
 
 
 # Combined metaclass to resolve conflict between Qt's metaclass and ABCMeta
@@ -27,67 +27,155 @@ def get_panel_stylesheet(include_checkbox: bool = False) -> str:
     Returns:
         CSS stylesheet string
     """
-    base_style = f"""
-        QWidget {{
-            background-color: {COLORS.bg_primary};
-            color: {COLORS.text_primary};
-        }}
-        QFrame {{
-            background-color: {COLORS.bg_primary};
-            border: none;
-        }}
-        QSplitter {{
-            background-color: {COLORS.bg_primary};
-        }}
-        QSplitter::handle {{
-            background-color: {COLORS.border_subtle};
-            height: 2px;
-        }}
-        QListWidget {{
-            background-color: {COLORS.bg_primary};
-            color: {COLORS.text_primary};
-            border: none;
-            padding: 0;
-            outline: none;
-        }}
-        QListWidget::item {{
-            padding: 6px;
-            border: none;
-            margin: 0;
-        }}
-        QListWidget::item:selected {{
-            background-color: {COLORS.accent_primary};
-            color: white;
-        }}
-        QListWidget::item:hover:!selected {{
-            background-color: {COLORS.bg_tertiary};
-        }}
-        QTextEdit {{
-            background-color: {COLORS.bg_primary};
-            color: {COLORS.text_primary};
-            border: none;
-            padding: 8px 0;
-        }}
-        QLabel {{
-            color: {COLORS.text_primary};
-            background-color: transparent;
-        }}
-    """
+    theme = get_theme_manager()
+    is_neu = theme.is_neumorphic
+
+    if is_neu:
+        # Dark pink sidebar material - the whole sidebar is this color
+        sidebar_material = "#3a2832"
+        # Slightly lighter for hover/selection
+        sidebar_hover = "#4a3842"
+        sidebar_selected = "#5a4852"
+
+        # Neumorphic style - flat non-rounded list items for consistency
+        base_style = f"""
+            QWidget {{
+                background-color: {sidebar_material};
+                color: {COLORS.text_primary};
+            }}
+            QFrame {{
+                background-color: {sidebar_material};
+                border: none;
+            }}
+            QSplitter {{
+                background-color: {sidebar_material};
+            }}
+            QSplitter::handle {{
+                background-color: {sidebar_material};
+                height: 6px;
+            }}
+            QListWidget {{
+                background-color: {sidebar_material};
+                color: {COLORS.text_primary};
+                border: none;
+                border-radius: 0px;
+                padding: 0px;
+                outline: none;
+            }}
+            QListWidget::item {{
+                padding: 8px 12px;
+                border: none;
+                margin: 0px;
+                border-radius: 0px;
+                border-left: 3px solid transparent;
+            }}
+            QListWidget::item:selected {{
+                background-color: {sidebar_selected};
+                border-left: 3px solid {COLORS.accent_primary};
+                color: {COLORS.text_primary};
+            }}
+            QListWidget::item:hover:!selected {{
+                background-color: {sidebar_hover};
+                border-left: 3px solid transparent;
+            }}
+            QTextEdit {{
+                background-color: {sidebar_hover};
+                color: {COLORS.text_primary};
+                border: none;
+                border-radius: 0px;
+                padding: 8px;
+            }}
+            QLabel {{
+                color: {COLORS.text_primary};
+                background-color: transparent;
+            }}
+        """
+    else:
+        # Standard flat style
+        base_style = f"""
+            QWidget {{
+                background-color: {COLORS.bg_primary};
+                color: {COLORS.text_primary};
+            }}
+            QFrame {{
+                background-color: {COLORS.bg_primary};
+                border: none;
+            }}
+            QSplitter {{
+                background-color: {COLORS.bg_primary};
+            }}
+            QSplitter::handle {{
+                background-color: {COLORS.border_subtle};
+                height: 2px;
+            }}
+            QListWidget {{
+                background-color: {COLORS.bg_primary};
+                color: {COLORS.text_primary};
+                border: none;
+                padding: 0;
+                outline: none;
+            }}
+            QListWidget::item {{
+                padding: 6px;
+                border: none;
+                margin: 0;
+            }}
+            QListWidget::item:selected {{
+                background-color: {COLORS.accent_primary};
+                color: white;
+            }}
+            QListWidget::item:hover:!selected {{
+                background-color: {COLORS.bg_tertiary};
+            }}
+            QTextEdit {{
+                background-color: {COLORS.bg_primary};
+                color: {COLORS.text_primary};
+                border: none;
+                padding: 8px 0;
+            }}
+            QLabel {{
+                color: {COLORS.text_primary};
+                background-color: transparent;
+            }}
+        """
 
     if include_checkbox:
-        base_style += f"""
-        QListWidget::indicator {{
-            width: 16px;
-            height: 16px;
-            border: 1px solid {COLORS.border_default};
-            border-radius: 3px;
-            background-color: {COLORS.bg_secondary};
-        }}
-        QListWidget::indicator:checked {{
-            background-color: {COLORS.accent_primary};
-            border-color: {COLORS.accent_primary};
-        }}
-        """
+        if is_neu:
+            base_style += f"""
+            QListWidget::indicator {{
+                width: 20px;
+                height: 20px;
+                border: none;
+                border-radius: 10px;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {COLORS.shadow_dark},
+                    stop:0.5 {COLORS.bg_primary},
+                    stop:1 {COLORS.shadow_light}
+                );
+            }}
+            QListWidget::indicator:checked {{
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {COLORS.accent_primary},
+                    stop:1 {COLORS.accent_primary_hover}
+                );
+            }}
+            """
+        else:
+            base_style += f"""
+            QListWidget::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 1px solid {COLORS.border_default};
+                border-radius: 3px;
+                background-color: {COLORS.bg_secondary};
+            }}
+            QListWidget::indicator:checked {{
+                background-color: {COLORS.accent_primary};
+                border-color: {COLORS.accent_primary};
+            }}
+            """
 
     return base_style
 

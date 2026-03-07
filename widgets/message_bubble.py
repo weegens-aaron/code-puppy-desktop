@@ -12,9 +12,11 @@ from models.data_types import Message, MessageRole, ToolOutputType
 from styles import (
     COLORS, get_role_style,
     get_message_bubble_style, get_bubble_content_style,
+    get_theme_manager,
 )
 from utils.content_renderer import ContentRenderer
 from utils.html_utils import render_image_html
+from utils.neumorphic_effects import apply_neumorphic_shadow, NeuStyle
 from widgets.theme_aware import ThemeAwareMixin
 from code_puppy.config import get_owner_name, get_puppy_name
 
@@ -174,8 +176,13 @@ class MessageWidget(QFrame, ThemeAwareMixin):
         """Apply current theme styles to the message card."""
         self.setStyleSheet(get_message_bubble_style(
             is_user=self._is_user,
-            is_tool=self._is_tool_message
+            is_tool=self._is_tool_message,
+            role=self._message.role.value
         ))
+        # Apply neumorphic shadow effect if theme supports it
+        if get_theme_manager().is_neumorphic:
+            style = NeuStyle.RAISED if self._is_user else NeuStyle.INSET
+            apply_neumorphic_shadow(self, style, intensity=0.8, blur_radius=15, offset=5)
 
     def _update_content(self):
         """Update the displayed content with proper rendering."""
