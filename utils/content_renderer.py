@@ -9,7 +9,8 @@ import os
 import re
 from typing import Any
 
-from utils.html_utils import escape_html, wrap_html_with_css
+from utils.html_utils import escape_html, wrap_html_with_css, render_image_html
+from utils.error_utils import parse_error_message, get_error_hint
 from utils.formatting import (
     format_size, get_file_icon, get_operation_icon
 )
@@ -22,63 +23,35 @@ class ContentRenderer:
     This class focuses solely on HTML generation, delegating:
     - CSS styles to css_styles module (SoC)
     - Formatting utilities to formatting module (DRY)
+
+    Tool call rendering uses a registry pattern (Open/Closed principle):
+    new tool renderers can be added without modifying render_tool_call().
     """
+
+    # Registry: tool_name -> (renderer_function, icon)
+    # Allows extension without modifying render_tool_call() (Open/Closed)
+    TOOL_RENDERERS: dict[str, tuple[callable, str]] = {}
+
+    @classmethod
+    def register_tool_renderer(cls, *tool_names: str, icon: str = "\U0001F527"):
+        """Decorator to register a tool call renderer.
+
+        Usage:
+            @ContentRenderer.register_tool_renderer("my_tool", icon="🔧")
+            def _render_my_tool(args: dict, icon: str) -> str:
+                ...
+        """
+        def decorator(func):
+            for name in tool_names:
+                cls.TOOL_RENDERERS[name.lower()] = (func, icon)
+            return func
+        return decorator
 
     @staticmethod
     def render_plain_text(text: str) -> str:
         """Render plain text with HTML escaping."""
         escaped = escape_html(text)
         return wrap_html_with_css(escaped, css_styles.get_plain_text_css())
-
-    @staticmethod
-    def _parse_error_message(error_message: str) -> dict:
-        """Parse an error message to extract structured information.
-
-        Returns:
-            Dict with keys: status_code, model_name, body, raw_message
-        """
-        import re
-
-        result = {
-            "status_code": None,
-            "model_name": None,
-            "body": None,
-            "raw_message": error_message
-        }
-
-        # Clean up tuple formatting like ('...',) or ("...",)
-        cleaned = error_message.strip()
-        if cleaned.startswith("(") and cleaned.endswith(",)"):
-            # Extract content from tuple
-            cleaned = cleaned[1:-2].strip()
-            if (cleaned.startswith("'") and cleaned.endswith("'")) or \
-               (cleaned.startswith('"') and cleaned.endswith('"')):
-                cleaned = cleaned[1:-1]
-
-        # Remove "Unexpected error: " prefix
-        if cleaned.lower().startswith("unexpected error:"):
-            cleaned = cleaned[17:].strip()
-
-        # Parse status_code: NNN pattern
-        status_match = re.search(r'status_code:\s*(\d+)', cleaned, re.IGNORECASE)
-        if status_match:
-            result["status_code"] = status_match.group(1)
-
-        # Parse model_name: ... pattern
-        model_match = re.search(r'model_name:\s*([^,]+)', cleaned, re.IGNORECASE)
-        if model_match:
-            result["model_name"] = model_match.group(1).strip()
-
-        # Parse body: ... pattern (rest of message after body:)
-        body_match = re.search(r'body:\s*(.+)$', cleaned, re.IGNORECASE)
-        if body_match:
-            result["body"] = body_match.group(1).strip()
-
-        # If no structured format found, use cleaned message
-        if not any([result["status_code"], result["model_name"], result["body"]]):
-            result["body"] = cleaned
-
-        return result
 
     @staticmethod
     def render_error(error_message: str, error_type: str = "Error") -> str:
@@ -91,14 +64,11 @@ class ContentRenderer:
         Returns:
             HTML string with styled error display
         """
-        # Parse error message for structured display
-        parsed = ContentRenderer._parse_error_message(error_message)
+        # Parse error message for structured display using shared utility
+        parsed = parse_error_message(error_message)
 
         # Build the main message
-        if parsed["body"]:
-            main_message = parsed["body"]
-        else:
-            main_message = parsed["raw_message"]
+        main_message = parsed["body"] or parsed["raw_message"]
 
         # Build details section
         details_parts = []
@@ -111,31 +81,8 @@ class ContentRenderer:
         if details_parts:
             details_html = f'<div class="error-details">{" &bull; ".join(details_parts)}</div>'
 
-        # Parse common error patterns to provide hints
-        hint = ""
-        error_lower = error_message.lower()
-
-        if "does not appear to support" in error_lower:
-            hint = "This model may not support the requested feature (e.g., image inputs). Try a different model."
-        elif "400" in error_message or "bad request" in error_lower:
-            hint = "The request was malformed. Check your input format."
-        elif "401" in error_message or "unauthorized" in error_lower:
-            hint = "Authentication failed. Check your API key configuration."
-        elif "403" in error_message or "forbidden" in error_lower:
-            hint = "Access denied. You may not have permission for this operation."
-        elif "429" in error_message or "rate limit" in error_lower:
-            hint = "Rate limit exceeded. Wait a moment and try again."
-        elif "500" in error_message or "internal server error" in error_lower:
-            hint = "The server encountered an error. Try again later."
-        elif "502" in error_message or "bad gateway" in error_lower:
-            hint = "Server is temporarily unavailable. Try again in a moment."
-        elif "503" in error_message or "service unavailable" in error_lower:
-            hint = "Service is temporarily overloaded. Try again later."
-        elif "timeout" in error_lower or "timed out" in error_lower:
-            hint = "The request timed out. Check your connection and try again."
-        elif "connection" in error_lower:
-            hint = "Could not connect to the server. Check your internet connection."
-
+        # Get hint using shared utility
+        hint = get_error_hint(error_message) or ""
         hint_html = f'<div class="error-hint">{escape_html(hint)}</div>' if hint else ''
 
         body = f'''
@@ -217,6 +164,47 @@ class ContentRenderer:
         return wrap_html_with_css(body, css_styles.get_markdown_css())
 
     @staticmethod
+    def _render_diff_lines(diff_text: str) -> list[str]:
+        """Render diff lines to HTML parts (DRY helper).
+
+        Args:
+            diff_text: Unified diff text
+
+        Returns:
+            List of HTML strings for diff lines
+        """
+        html_parts = []
+        if not diff_text:
+            html_parts.append('<div class="diff-line diff-context">-- no changes --</div>')
+            return html_parts
+
+        for line in diff_text.split('\n'):
+            if not line:
+                continue
+            # Skip diff headers
+            if line.startswith(('---', '+++', '@@', 'diff ', 'index ')):
+                continue
+
+            if line.startswith('+'):
+                html_parts.append(
+                    f'<div class="diff-line diff-add">'
+                    f'<span class="marker">+ </span>{escape_html(line[1:])}</div>'
+                )
+            elif line.startswith('-'):
+                html_parts.append(
+                    f'<div class="diff-line diff-remove">'
+                    f'<span class="marker">- </span>{escape_html(line[1:])}</div>'
+                )
+            else:
+                content = line[1:] if line.startswith(' ') else line
+                html_parts.append(
+                    f'<div class="diff-line diff-context">'
+                    f'<span class="marker">  </span>{escape_html(content)}</div>'
+                )
+
+        return html_parts
+
+    @staticmethod
     def render_diff(diff_text: str, operation: str = "modify", filepath: str = "") -> str:
         """Render a unified diff with syntax highlighting."""
         icon = get_operation_icon(operation)
@@ -230,31 +218,7 @@ class ContentRenderer:
             '<div class="diff-content">'
         ]
 
-        if diff_text:
-            for line in diff_text.split('\n'):
-                if not line:
-                    continue
-                if line.startswith(('---', '+++', '@@', 'diff ', 'index ')):
-                    continue
-
-                if line.startswith('+'):
-                    html_parts.append(
-                        f'<div class="diff-line diff-add">'
-                        f'<span class="marker">+ </span>{escape_html(line[1:])}</div>'
-                    )
-                elif line.startswith('-'):
-                    html_parts.append(
-                        f'<div class="diff-line diff-remove">'
-                        f'<span class="marker">- </span>{escape_html(line[1:])}</div>'
-                    )
-                else:
-                    content = line[1:] if line.startswith(' ') else line
-                    html_parts.append(
-                        f'<div class="diff-line diff-context">'
-                        f'<span class="marker">  </span>{escape_html(content)}</div>'
-                    )
-        else:
-            html_parts.append('<div class="diff-line diff-context">-- no changes --</div>')
+        html_parts.extend(ContentRenderer._render_diff_lines(diff_text))
 
         html_parts.append('</div>')
         return wrap_html_with_css(''.join(html_parts), css_styles.get_diff_css())
@@ -314,34 +278,10 @@ class ContentRenderer:
             '</div>',
         ]
         
-        # Show diff if available
+        # Show diff if available (using shared helper)
         if diff_text and changed:
             html_parts.append('<div class="diff-content">')
-            
-            for line in diff_text.split('\n'):
-                if not line:
-                    continue
-                # Skip diff headers
-                if line.startswith(('---', '+++', '@@', 'diff ', 'index ')):
-                    continue
-                
-                if line.startswith('+'):
-                    html_parts.append(
-                        f'<div class="diff-line diff-add">'
-                        f'<span class="marker">+ </span>{escape_html(line[1:])}</div>'
-                    )
-                elif line.startswith('-'):
-                    html_parts.append(
-                        f'<div class="diff-line diff-remove">'
-                        f'<span class="marker">- </span>{escape_html(line[1:])}</div>'
-                    )
-                else:
-                    content = line[1:] if line.startswith(' ') else line
-                    html_parts.append(
-                        f'<div class="diff-line diff-context">'
-                        f'<span class="marker">  </span>{escape_html(content)}</div>'
-                    )
-            
+            html_parts.extend(ContentRenderer._render_diff_lines(diff_text))
             html_parts.append('</div>')
         
         # Always show message if available
@@ -512,9 +452,12 @@ class ContentRenderer:
         )
         return wrap_html_with_css(body, css_styles.get_file_header_css())
 
-    @staticmethod
-    def render_tool_call(tool_name: str, tool_args: str | dict) -> str:
+    @classmethod
+    def render_tool_call(cls, tool_name: str, tool_args: str | dict) -> str:
         """Render a tool call with formatted arguments.
+
+        Uses registry pattern - new renderers can be added via
+        @ContentRenderer.register_tool_renderer() decorator.
 
         Args:
             tool_name: Name of the tool being called
@@ -524,9 +467,7 @@ class ContentRenderer:
             HTML string with styled tool call
         """
         # Parse args if string
-        raw_args = ""
         if isinstance(tool_args, str):
-            raw_args = tool_args
             try:
                 args = json.loads(tool_args) if tool_args.strip() else {}
             except json.JSONDecodeError:
@@ -535,58 +476,16 @@ class ContentRenderer:
         else:
             args = tool_args or {}
 
-        # Normalize tool name for matching (handle Edit, Write, etc.)
+        # Normalize tool name for matching
         tool_lower = tool_name.lower()
 
-        # Tool icons (use lowercase keys)
-        tool_icons = {
-            "edit": "\u270f\ufe0f",
-            "edit_file": "\u270f\ufe0f",
-            "write": "\U0001F4DD",
-            "write_file": "\U0001F4DD",
-            "create_file": "\u2728",
-            "read": "\U0001F4C4",
-            "read_file": "\U0001F4C4",
-            "delete_file": "\U0001F5D1",
-            "run_shell_command": "\U0001F680",
-            "execute_command": "\U0001F680",
-            "shell": "\U0001F680",
-            "bash": "\U0001F680",
-            "list_directory": "\U0001F4C1",
-            "list_files": "\U0001F4C1",
-            "glob": "\U0001F4C1",
-            "grep": "\U0001F50D",
-            "search_files": "\U0001F50D",
-            "search": "\U0001F50D",
-            "agent_share_your_reasoning": "\U0001F4AD",
-            "list_or_search_skills": "\U0001F3AF",
-            "activate_skill": "\U0001F680",
-            "load_image_for_analysis": "\U0001F5BC",
-            "ask_user_question": "\u2753",
-        }
-        icon = tool_icons.get(tool_lower, "\U0001F527")
+        # Look up renderer in registry
+        if tool_lower in cls.TOOL_RENDERERS:
+            renderer, icon = cls.TOOL_RENDERERS[tool_lower]
+            return renderer(tool_name, args, icon)
 
-        # Route to specific formatters (use lowercase for matching)
-        if tool_lower in ("edit", "edit_file", "write", "write_file", "create_file"):
-            return ContentRenderer._render_edit_tool_call(tool_name, args, icon)
-        elif tool_lower in ("run_shell_command", "execute_command", "shell", "bash"):
-            return ContentRenderer._render_shell_tool_call(tool_name, args, icon)
-        elif tool_lower in ("read", "read_file", "view_file"):
-            return ContentRenderer._render_read_tool_call(tool_name, args, icon)
-        elif tool_lower in ("list_directory", "list_files", "ls", "glob"):
-            return ContentRenderer._render_list_tool_call(tool_name, args, icon)
-        elif tool_lower in ("grep", "search_files", "search", "find_in_files"):
-            return ContentRenderer._render_search_tool_call(tool_name, args, icon)
-        elif tool_lower == "agent_share_your_reasoning":
-            return ContentRenderer._render_reasoning_tool_call(args, icon)
-        elif tool_lower in ("list_or_search_skills", "activate_skill"):
-            return ContentRenderer._render_skill_tool_call(tool_name, args, icon)
-        elif tool_lower == "load_image_for_analysis":
-            return ContentRenderer._render_image_tool_call(args, icon)
-        elif tool_lower == "ask_user_question":
-            return ContentRenderer._render_ask_user_question_call(args, "\u2753")
-        else:
-            return ContentRenderer._render_generic_tool_call(tool_name, args, icon)
+        # Fallback to generic renderer
+        return cls._render_generic_tool_call(tool_name, args, "\U0001F527")
 
     @staticmethod
     def _extract_file_path_from_partial(text: str) -> str:
@@ -819,12 +718,6 @@ class ContentRenderer:
         """Render load_image_for_analysis tool call with embedded image preview."""
         image_path = args.get("image_path", "")
 
-        # Resolve to absolute path if relative
-        if image_path and not os.path.isabs(image_path):
-            abs_path = os.path.abspath(image_path)
-        else:
-            abs_path = image_path
-
         html_parts = [
             '<div class="tool-content">',
             f'<div class="tool-param">'
@@ -832,21 +725,16 @@ class ContentRenderer:
             f'</div>',
         ]
 
-        # Check if file exists and render the image
-        if abs_path and os.path.isfile(abs_path):
-            # Use file:// URL for local images
-            file_url = f"file://{abs_path}"
+        # Render the image using shared utility
+        img_html = render_image_html(image_path)
+        if img_html:
             html_parts.append(
-                f'<div class="image-preview" style="margin-top: 8px;">'
-                f'<img src="{file_url}" alt="{escape_html(image_path)}" '
-                f'style="max-width: 100%; max-height: 300px; border-radius: 4px; '
-                f'border: 1px solid #444;"/>'
-                f'</div>'
+                f'<div class="image-preview" style="margin-top: 8px;">{img_html}</div>'
             )
-        else:
+        elif image_path:
             html_parts.append(
                 '<div class="tool-param" style="color: #a0a0a0; font-style: italic;">'
-                '(image not found or path invalid)'
+                '(image not found or failed to load)'
                 '</div>'
             )
 
@@ -1150,3 +1038,64 @@ class ContentRenderer:
 
         html_parts.append('</div>')
         return wrap_html_with_css(''.join(html_parts), css_styles.get_skill_activate_css())
+
+
+# =============================================================================
+# Tool Renderer Registrations (Open/Closed principle)
+# =============================================================================
+
+def _register_tool_renderers():
+    """Register all built-in tool renderers."""
+    R = ContentRenderer.register_tool_renderer
+
+    # File operations
+    @R("edit", "edit_file", "write", "write_file", "create_file", icon="\u270f\ufe0f")
+    def edit_renderer(tool_name, args, icon):
+        return ContentRenderer._render_edit_tool_call(tool_name, args, icon)
+
+    @R("read", "read_file", "view_file", icon="\U0001F4C4")
+    def read_renderer(tool_name, args, icon):
+        return ContentRenderer._render_read_tool_call(tool_name, args, icon)
+
+    @R("delete_file", icon="\U0001F5D1")
+    def delete_renderer(tool_name, args, icon):
+        return ContentRenderer._render_generic_tool_call(tool_name, args, icon)
+
+    # Shell commands
+    @R("run_shell_command", "execute_command", "shell", "bash", icon="\U0001F680")
+    def shell_renderer(tool_name, args, icon):
+        return ContentRenderer._render_shell_tool_call(tool_name, args, icon)
+
+    # Directory operations
+    @R("list_directory", "list_files", "ls", "glob", icon="\U0001F4C1")
+    def list_renderer(tool_name, args, icon):
+        return ContentRenderer._render_list_tool_call(tool_name, args, icon)
+
+    # Search operations
+    @R("grep", "search_files", "search", "find_in_files", icon="\U0001F50D")
+    def search_renderer(tool_name, args, icon):
+        return ContentRenderer._render_search_tool_call(tool_name, args, icon)
+
+    # Agent reasoning
+    @R("agent_share_your_reasoning", icon="\U0001F4AD")
+    def reasoning_renderer(tool_name, args, icon):
+        return ContentRenderer._render_reasoning_tool_call(args, icon)
+
+    # Skills
+    @R("list_or_search_skills", "activate_skill", icon="\U0001F3AF")
+    def skill_renderer(tool_name, args, icon):
+        return ContentRenderer._render_skill_tool_call(tool_name, args, icon)
+
+    # Image loading
+    @R("load_image_for_analysis", icon="\U0001F5BC")
+    def image_renderer(tool_name, args, icon):
+        return ContentRenderer._render_image_tool_call(args, icon)
+
+    # User questions
+    @R("ask_user_question", icon="\u2753")
+    def question_renderer(tool_name, args, icon):
+        return ContentRenderer._render_ask_user_question_call(args, icon)
+
+
+# Register on module load
+_register_tool_renderers()

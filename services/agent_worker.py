@@ -11,102 +11,9 @@ from unittest.mock import patch
 
 from PySide6.QtCore import QObject, Signal
 
+from utils.error_utils import get_error_capturer
+
 logger = logging.getLogger(__name__)
-
-
-class ErrorCapturer:
-    """Captures error messages from both logging and MessageQueue."""
-
-    ERROR_KEYWORDS = [
-        'error', 'failed', 'status_code', 'unexpected',
-        'bad request', 'unauthorized', 'forbidden',
-        'does not appear to support', 'api error',
-        'usage limit', 'mcp server error', 'connection'
-    ]
-
-    def __init__(self):
-        self.captured_errors: list[str] = []
-        self._lock = threading.Lock()
-        self._original_emit = None
-        self._patched = False
-
-    def _is_error_message(self, content: str) -> bool:
-        """Check if content looks like an error message."""
-        content_lower = content.lower()
-        return any(kw in content_lower for kw in self.ERROR_KEYWORDS)
-
-    def capture(self, msg: str):
-        """Capture an error message."""
-        if msg and self._is_error_message(msg):
-            with self._lock:
-                # Avoid duplicates
-                if msg not in self.captured_errors:
-                    self.captured_errors.append(msg)
-                    logger.info(f"ErrorCapturer captured: {msg[:80]}...")
-
-    def patch_message_queue(self):
-        """Patch the MessageQueue.emit to capture error messages."""
-        if self._patched:
-            return
-
-        try:
-            from code_puppy.messaging import get_global_queue, MessageType
-
-            queue = get_global_queue()
-            self._original_emit = queue.emit
-
-            def patched_emit(message):
-                # Call original
-                self._original_emit(message)
-                # Capture error messages
-                if hasattr(message, 'type') and hasattr(message, 'content'):
-                    if message.type in (MessageType.ERROR, MessageType.WARNING, MessageType.INFO):
-                        content = str(message.content) if message.content else ""
-                        self.capture(content)
-
-            queue.emit = patched_emit
-            self._patched = True
-            logger.info("Patched MessageQueue.emit for error capture")
-        except Exception as e:
-            logger.warning(f"Failed to patch MessageQueue: {e}")
-
-    def unpatch_message_queue(self):
-        """Restore original MessageQueue.emit."""
-        if not self._patched or self._original_emit is None:
-            return
-
-        try:
-            from code_puppy.messaging import get_global_queue
-            queue = get_global_queue()
-            queue.emit = self._original_emit
-            self._patched = False
-        except Exception:
-            pass
-
-    def get_last_error(self) -> str | None:
-        with self._lock:
-            return self.captured_errors[-1] if self.captured_errors else None
-
-    def get_all_errors(self) -> list[str]:
-        with self._lock:
-            return list(self.captured_errors)
-
-    def clear(self):
-        with self._lock:
-            self.captured_errors.clear()
-
-
-# Global error capturer instance
-_error_capturer: ErrorCapturer | None = None
-
-
-def get_error_capturer() -> ErrorCapturer:
-    """Get or create the global error capturer."""
-    global _error_capturer
-    if _error_capturer is None:
-        _error_capturer = ErrorCapturer()
-        _error_capturer.patch_message_queue()
-    return _error_capturer
 
 
 @contextmanager
@@ -217,7 +124,7 @@ class AgentWorker(QObject):
         asyncio.run_coroutine_threadsafe(self._prewarm_async(), self._loop)
 
     async def _prewarm_async(self):
-        """Async prewarm - initialize agent and connect MCP servers."""
+        """Async prewarm - initialize agent and start enabled MCP servers."""
         try:
             # Initialize the agent
             agent = self.get_agent()
@@ -226,16 +133,45 @@ class AgentWorker(QObject):
                 agent.clear_message_history()
                 logger.info("Cleared agent history from previous session")
 
-                # Pre-connect MCP servers if the agent supports it
-                if hasattr(agent, 'ensure_mcp_connected'):
-                    await agent.ensure_mcp_connected()
-                elif hasattr(agent, 'mcp_manager') and agent.mcp_manager:
-                    # Try to initialize MCP connections
-                    if hasattr(agent.mcp_manager, 'ensure_connected'):
-                        await agent.mcp_manager.ensure_connected()
+            # Start all enabled MCP servers
+            await self._start_enabled_mcp_servers()
+
             logger.info("Agent pre-warmed successfully")
         except Exception as e:
             logger.warning(f"Prewarm failed (non-fatal): {e}")
+
+    async def _start_enabled_mcp_servers(self):
+        """Start all enabled MCP servers that aren't already running."""
+        try:
+            from code_puppy.mcp_.manager import get_mcp_manager
+            from code_puppy.mcp_.managed_server import ServerState
+
+            manager = get_mcp_manager()
+            servers = manager.list_servers()
+
+            started_count = 0
+            for server in servers:
+                # Only start enabled servers that aren't already running
+                if server.enabled and server.state not in (ServerState.RUNNING, ServerState.STARTING):
+                    try:
+                        success = await manager.start_server(server.id)
+                        if success:
+                            started_count += 1
+                            logger.info(f"Started MCP server: {server.name}")
+                        else:
+                            logger.warning(f"Failed to start MCP server: {server.name}")
+                    except Exception as e:
+                        logger.warning(f"Error starting MCP server {server.name}: {e}")
+
+            if started_count > 0:
+                logger.info(f"Started {started_count} MCP server(s)")
+            elif servers:
+                logger.debug("All enabled MCP servers already running or none configured")
+
+        except ImportError as e:
+            logger.debug(f"MCP module not available: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to start MCP servers: {e}")
 
     def _run_event_loop(self):
         """Run the asyncio event loop in the worker thread."""
@@ -484,6 +420,9 @@ class AgentWorker(QObject):
                 self.error_occurred.emit("No agent available")
                 return
 
+            # Ensure enabled MCP servers are started before running agent
+            await self._start_enabled_mcp_servers()
+
             # Run the agent with retry logic
             last_error = None
             for attempt in range(1, max_retries + 1):
@@ -549,6 +488,20 @@ class AgentWorker(QObject):
 
                         # Last resort: emit empty response (app.py will handle)
                         logger.warning("Agent completed with no response content")
+
+                    # Update agent message history and trigger autosave
+                    # This mirrors the CLI behavior in cli_runner.py
+                    try:
+                        if result and hasattr(result, 'all_messages'):
+                            agent.set_message_history(list(result.all_messages()))
+                            logger.info("Updated agent message history for session persistence")
+
+                        # Trigger autosave if enabled
+                        from code_puppy.config import auto_save_session_if_enabled
+                        auto_save_session_if_enabled()
+                        logger.debug("Autosave triggered")
+                    except Exception as e:
+                        logger.warning(f"Failed to update message history or autosave: {e}")
 
                     self.response_complete.emit(response_text)
                     return  # Success, exit retry loop

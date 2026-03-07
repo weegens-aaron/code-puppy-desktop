@@ -7,15 +7,15 @@ from PySide6.QtWidgets import (
     QTextBrowser, QFrame, QPushButton, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QPixmap
 
 from models.data_types import Message, MessageRole, ToolOutputType
 from styles import (
     COLORS, get_role_style,
     get_message_bubble_style, get_bubble_content_style,
-    get_theme_manager,
 )
 from utils.content_renderer import ContentRenderer
+from utils.html_utils import render_image_html
+from widgets.theme_aware import ThemeAwareMixin
 from code_puppy.config import get_owner_name, get_puppy_name
 
 
@@ -28,7 +28,7 @@ def _default_assistant_name() -> str:
     return get_puppy_name()
 
 
-class MessageWidget(QFrame):
+class MessageWidget(QFrame, ThemeAwareMixin):
     """A modern chat bubble message widget.
 
     User messages appear right-aligned with accent color.
@@ -55,9 +55,8 @@ class MessageWidget(QFrame):
         self._setup_ui()
         self._update_content()
 
-        # Listen for theme changes
-        self._theme_manager = get_theme_manager()
-        self._theme_manager.add_listener(self._on_theme_changed)
+        # Listen for theme changes (via mixin)
+        self.setup_theme_listener()
 
     def _on_theme_changed(self, theme):
         """Update styles when theme changes."""
@@ -300,34 +299,15 @@ class MessageWidget(QFrame):
         self._attachments_container.setVisible(has_attachments)
 
     def _add_image_attachment(self, filepath: str):
-        """Add an image attachment widget using HTML like the tool renderer."""
-        # Resolve to absolute path
-        if not os.path.isabs(filepath):
-            abs_path = os.path.abspath(filepath)
-        else:
-            abs_path = filepath
-
-        if not os.path.isfile(abs_path):
+        """Add an image attachment widget using shared image rendering."""
+        # Use shared utility for consistent rendering with tool call images
+        img_html = render_image_html(filepath)
+        if not img_html:
             return
 
-        # Verify it's a valid image
-        pixmap = QPixmap(abs_path)
-        if pixmap.isNull():
-            return
+        html = f'<div style="margin: 4px 0;">{img_html}</div>'
 
-        # Use HTML rendering like the agent's image tool for consistent appearance
-        # Normalize path for file:// URL (forward slashes)
-        file_url = f"file:///{abs_path.replace(os.sep, '/')}"
-
-        html = f'''
-        <div style="margin: 4px 0;">
-            <img src="{file_url}"
-                 style="max-width: 100%; max-height: 300px; border-radius: 4px;
-                        border: 1px solid #444; display: block;"/>
-        </div>
-        '''
-
-        # Create a QTextBrowser for HTML rendering (same as agent images)
+        # Create a QTextBrowser for HTML rendering
         img_browser = QTextBrowser()
         img_browser.setHtml(html)
         img_browser.setOpenExternalLinks(False)
@@ -337,7 +317,7 @@ class MessageWidget(QFrame):
         img_browser.setStyleSheet("background-color: transparent;")
         img_browser.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        # Auto-resize based on document content (like main content area)
+        # Auto-resize based on document content
         def adjust_browser_height(size=None):
             doc = img_browser.document()
             doc.setTextWidth(img_browser.viewport().width())
@@ -395,11 +375,7 @@ class MessageWidget(QFrame):
 
     def cleanup(self):
         """Explicitly clean up resources. Call before discarding widget."""
-        if hasattr(self, '_theme_manager') and hasattr(self, '_on_theme_changed'):
-            try:
-                self._theme_manager.remove_listener(self._on_theme_changed)
-            except Exception:
-                pass
+        self.cleanup_theme_listener()
 
     def hideEvent(self, event):
         """Clean up when widget is hidden (removed from view)."""

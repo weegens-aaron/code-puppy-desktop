@@ -1,10 +1,6 @@
 """Skills management panel for the sidebar."""
 
 import os
-import re
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
@@ -12,106 +8,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-from styles import COLORS, button_style, get_theme_manager
+from styles import COLORS, get_theme_manager
+from services.skill_service import get_skill_service, SkillInfo
+from widgets.theme_aware import ThemeAwareMixin
 
 
-@dataclass
-class SkillInfo:
-    """Information about a discovered skill."""
-    name: str
-    path: Path
-    description: str = ""
-    license: str = ""
-    content_preview: str = ""
-
-
-def get_skills_directory() -> Path:
-    """Get the skills directory path."""
-    return Path.home() / ".code_puppy" / "skills"
-
-
-def discover_skills() -> list[SkillInfo]:
-    """Discover all skills in the skills directory."""
-    skills_dir = get_skills_directory()
-    skills = []
-
-    if not skills_dir.exists():
-        return skills
-
-    for item in skills_dir.iterdir():
-        if item.is_dir():
-            skill_md = item / "SKILL.md"
-            if skill_md.exists():
-                skill_info = parse_skill_file(skill_md)
-                if skill_info:
-                    skills.append(skill_info)
-        elif item.suffix == ".skill" and item.is_file():
-            # Single-file skill
-            skill_info = parse_skill_file(item)
-            if skill_info:
-                skills.append(skill_info)
-
-    return sorted(skills, key=lambda s: s.name.lower())
-
-
-def parse_skill_file(path: Path) -> Optional[SkillInfo]:
-    """Parse a SKILL.md file to extract metadata."""
-    try:
-        content = path.read_text(encoding="utf-8")
-    except Exception:
-        return None
-
-    # Extract YAML frontmatter
-    name = path.parent.name if path.name == "SKILL.md" else path.stem
-    description = ""
-    license_info = ""
-
-    # Check for YAML frontmatter
-    if content.startswith("---"):
-        parts = content.split("---", 2)
-        if len(parts) >= 3:
-            frontmatter = parts[1]
-            content_body = parts[2]
-
-            # Parse simple YAML
-            for line in frontmatter.strip().split("\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    key = key.strip().lower()
-                    value = value.strip()
-                    if key == "name":
-                        name = value
-                    elif key == "description":
-                        description = value
-                    elif key == "license":
-                        license_info = value
-        else:
-            content_body = content
-    else:
-        content_body = content
-
-    # Get content preview (first ~200 chars of actual content)
-    preview_lines = []
-    for line in content_body.strip().split("\n"):
-        line = line.strip()
-        if line and not line.startswith("#"):
-            preview_lines.append(line)
-            if len(" ".join(preview_lines)) > 200:
-                break
-    content_preview = " ".join(preview_lines)[:200]
-    if len(content_preview) == 200:
-        content_preview += "..."
-
-    return SkillInfo(
-        name=name,
-        path=path.parent if path.name == "SKILL.md" else path,
-        description=description,
-        license=license_info,
-        content_preview=content_preview,
-    )
-
-
-class SkillsPanel(QWidget):
+class SkillsPanel(QWidget, ThemeAwareMixin):
     """Panel for viewing available skills."""
 
     skills_changed = Signal()  # Emits when skills are modified
@@ -119,16 +21,12 @@ class SkillsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._skills: list[SkillInfo] = []
+        self._skill_service = get_skill_service()
         self._setup_ui()
         self._load_skills()
 
-        # Theme listener
-        self._theme_manager = get_theme_manager()
-        self._theme_manager.add_listener(self._on_theme_changed)
-
-    def _on_theme_changed(self, theme):
-        """Update styles when theme changes."""
-        self._apply_styles()
+        # Theme listener (via mixin)
+        self.setup_theme_listener()
 
     def _apply_styles(self):
         """Apply current theme styles."""
@@ -258,9 +156,9 @@ class SkillsPanel(QWidget):
         """Load available skills into the list."""
         self._skills_list.clear()
 
-        # Discover skills
+        # Discover skills via service
         try:
-            self._skills = discover_skills()
+            self._skills = self._skill_service.discover_skills()
         except Exception as e:
             self._skills = []
             self._details_text.setHtml(f"""
@@ -335,7 +233,7 @@ class SkillsPanel(QWidget):
 
     def _render_no_skills_help(self) -> str:
         """Render help text when no skills are found."""
-        skills_dir = get_skills_directory()
+        skills_dir = self._skill_service.skills_directory
         return f"""
         <div style="font-family: 'Segoe UI', sans-serif; color: {COLORS.text_primary}; padding: 8px;">
             <h3 style="color: {COLORS.accent_warning}; font-size: 14px;">No Skills Found</h3>
@@ -359,8 +257,7 @@ class SkillsPanel(QWidget):
         import subprocess
         import sys
 
-        skills_dir = get_skills_directory()
-        skills_dir.mkdir(parents=True, exist_ok=True)
+        skills_dir = self._skill_service.ensure_directory_exists()
 
         if sys.platform == "win32":
             os.startfile(str(skills_dir))
@@ -380,8 +277,4 @@ class SkillsPanel(QWidget):
 
     def __del__(self):
         """Clean up theme listener."""
-        try:
-            if hasattr(self, '_theme_manager'):
-                self._theme_manager.remove_listener(self._on_theme_changed)
-        except Exception:
-            pass
+        self.cleanup_theme_listener()

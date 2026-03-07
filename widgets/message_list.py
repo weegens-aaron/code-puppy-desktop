@@ -10,10 +10,11 @@ from models.message_model import MessageModel
 from models.data_types import Message, MessageRole
 from widgets.message_bubble import MessageWidget
 from widgets.question_widget import QuestionWidget
-from styles import COLORS, get_scroll_area_style, get_theme_manager
+from widgets.theme_aware import ThemeAwareMixin
+from styles import COLORS, get_scroll_area_style
 
 
-class MessageListView(QScrollArea):
+class MessageListView(QScrollArea, ThemeAwareMixin):
     """Scroll area containing message widgets with rich content."""
 
     copy_requested = Signal(str)
@@ -54,9 +55,8 @@ class MessageListView(QScrollArea):
         # Track user scrolling to manage auto-scroll
         self.verticalScrollBar().valueChanged.connect(self._on_scroll)
 
-        # Theme listener
-        self._theme_manager = get_theme_manager()
-        self._theme_manager.add_listener(self._on_theme_changed)
+        # Theme listener (via mixin)
+        self.setup_theme_listener()
 
     def _apply_styles(self):
         """Apply current theme styles."""

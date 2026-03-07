@@ -47,16 +47,6 @@ class MessageModel(QAbstractListModel):
         self.message_added.emit(row)
         return row
 
-    def update_last_message(self, content: str):
-        """Update the last message's content (for streaming)."""
-        if not self._messages:
-            return
-
-        self._messages[-1].content = content
-        index = self.index(len(self._messages) - 1)
-        self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
-        self.message_updated.emit(len(self._messages) - 1)
-
     def append_to_last_message(self, text: str):
         """Append text to the last message (efficient streaming)."""
         if not self._messages:

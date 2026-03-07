@@ -67,7 +67,7 @@ Located in `windows/dialogs/`:
 - `session_dialog.py` - Session resume functionality
 - `help_dialog.py` - Help/keyboard shortcuts
 - `mcp_dialog.py` - Contains `AddServerDialog` for adding new MCP servers (used by MCP panel)
-- `agent_dialog.py`, `model_dialog.py`, `skills_dialog.py` - Legacy dialogs (functionality now in sidebar panels)
+- `question_dialog.py` - User question prompts
 
 ## Key Patterns
 

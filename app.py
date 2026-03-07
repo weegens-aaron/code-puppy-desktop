@@ -25,6 +25,7 @@ from services.agent_bridge import AgentBridge
 from services.status_bar_manager import StatusBarManager
 from services.streaming_handler import StreamingHandler
 from services.session_manager import SessionManager
+from utils.error_utils import categorize_error
 from windows.dialogs.settings_dialog import SettingsDialog
 from windows.dialogs.help_dialog import HelpDialog
 from styles import (
@@ -561,23 +562,8 @@ class CodePuppyApp(QMainWindow):
         self._streaming.reset_indices()
 
     def _categorize_error(self, error: str) -> str:
-        """Categorize an error message."""
-        error_lower = error.lower()
-        if "400" in error or "bad request" in error_lower:
-            return "API Error (400)"
-        elif "401" in error or "unauthorized" in error_lower:
-            return "Auth Error (401)"
-        elif "403" in error or "forbidden" in error_lower:
-            return "Access Denied (403)"
-        elif "429" in error or "rate limit" in error_lower:
-            return "Rate Limited (429)"
-        elif "500" in error or "502" in error or "503" in error or "504" in error:
-            return "Server Error"
-        elif "timeout" in error_lower or "timed out" in error_lower:
-            return "Timeout"
-        elif "connection" in error_lower:
-            return "Connection Error"
-        return "Error"
+        """Categorize an error message using shared utility."""
+        return categorize_error(error)
 
     def _on_agent_busy(self, busy: bool):
         """Handle agent busy state change."""
