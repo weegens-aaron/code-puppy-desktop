@@ -1,9 +1,8 @@
 """Primitive style building blocks for DRY styling.
 
 This module contains reusable element types:
-- Sidebar material colors
-- Bevel generators (raised/inset)
-- Common element styles (flat label, raised button, inset container)
+- Sidebar material colors and inset bevel constants
+- Common element styles (flat label, inset container, inset panel)
 """
 
 from styles.colors import get_theme_manager
@@ -24,41 +23,6 @@ SIDEBAR_SELECTED = "#5a4852"
 INSET_DARK = "#1a1a1e"   # Top/left shadow
 INSET_LIGHT = "#4a4a58"  # Bottom/right highlight
 
-
-# =============================================================================
-# Bevel Generators
-# =============================================================================
-
-def raised_bevel(width: int = 2) -> str:
-    """Generate raised/outward bevel borders (light top-left, dark bottom-right)."""
-    colors = _theme_manager.current
-    return f"""
-        border-top: {width}px solid {colors.shadow_light};
-        border-left: {width}px solid {colors.shadow_light};
-        border-bottom: {width}px solid {colors.shadow_dark};
-        border-right: {width}px solid {colors.shadow_dark};
-    """
-
-
-def inset_bevel(width: int = 3) -> str:
-    """Generate inset/recessed bevel borders (dark top-left, light bottom-right)."""
-    return f"""
-        border-top: {width}px solid {INSET_DARK};
-        border-left: {width}px solid {INSET_DARK};
-        border-bottom: {width}px solid {INSET_LIGHT};
-        border-right: {width}px solid {INSET_LIGHT};
-    """
-
-
-def pressed_bevel(width: int = 2) -> str:
-    """Generate pressed state bevel (inverted raised)."""
-    colors = _theme_manager.current
-    return f"""
-        border-top: {width}px solid {colors.shadow_dark};
-        border-left: {width}px solid {colors.shadow_dark};
-        border-bottom: {width}px solid {colors.shadow_light};
-        border-right: {width}px solid {colors.shadow_light};
-    """
 
 
 # =============================================================================
@@ -178,68 +142,6 @@ def inset_container_style(
             }}
         """
 
-
-# =============================================================================
-# Raised Button Style
-# =============================================================================
-
-def raised_button_style(
-    border_radius: int = 14,
-    padding: str = "12px",
-    font_size: int = 22,
-    min_size: int = 50,
-) -> str:
-    """Raised button with outward bevel.
-
-    Used for: toolbar buttons, standalone action buttons
-    Pressed state uses dark pink (SIDEBAR_MATERIAL) to indicate recessed.
-    """
-    colors = _theme_manager.current
-
-    if colors.is_neumorphic:
-        return f"""
-            QPushButton {{
-                background-color: {colors.bg_primary};
-                color: {colors.text_primary};
-                border-top: 2px solid {colors.shadow_light};
-                border-left: 2px solid {colors.shadow_light};
-                border-bottom: 2px solid {colors.shadow_dark};
-                border-right: 2px solid {colors.shadow_dark};
-                border-radius: {border_radius}px;
-                padding: {padding};
-                font-size: {font_size}px;
-                min-width: {min_size}px;
-                min-height: {min_size}px;
-            }}
-            QPushButton:hover {{
-                background-color: {colors.bg_tertiary};
-                color: {colors.accent_primary};
-            }}
-            QPushButton:pressed {{
-                background-color: {SIDEBAR_MATERIAL};
-                border-top: 2px solid {INSET_DARK};
-                border-left: 2px solid {INSET_DARK};
-                border-bottom: 2px solid {INSET_LIGHT};
-                border-right: 2px solid {INSET_LIGHT};
-            }}
-        """
-    else:
-        return f"""
-            QPushButton {{
-                background-color: {colors.bg_tertiary};
-                color: {colors.text_primary};
-                border: none;
-                border-radius: 6px;
-                padding: 10px;
-                font-size: 20px;
-                min-width: 44px;
-                min-height: 44px;
-            }}
-            QPushButton:hover {{
-                background-color: {colors.accent_primary};
-                color: white;
-            }}
-        """
 
 
 # =============================================================================

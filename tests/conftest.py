@@ -50,7 +50,6 @@ mock_colors.accent_info = "#4fc3f7"
 
 sys.modules["styles"] = MagicMock()
 sys.modules["styles"].COLORS = mock_colors
-sys.modules["styles"].button_style = MagicMock(return_value="")
 
 
 @pytest.fixture

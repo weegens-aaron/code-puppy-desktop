@@ -1,105 +1,15 @@
-"""Base styles and neumorphism utilities.
+"""Base styles for main window, scroll areas, and content browser.
 
 This module contains:
-- Neumorphism shadow utilities
 - Main window styles
 - Scroll area styles
 - Content browser styles
-- Deprecated module-level constants
 """
 
 from styles.colors import get_theme_manager
 
 _theme_manager = get_theme_manager()
 
-
-# =============================================================================
-# Neumorphism Utilities
-# =============================================================================
-
-def _neu_shadow_outset(blur: int = 10, offset: int = 5) -> str:
-    """Generate neumorphic outset (raised) shadow CSS approximation.
-
-    Note: Qt CSS doesn't support box-shadow, so we simulate with borders.
-    """
-    colors = _theme_manager.current
-    if not colors.is_neumorphic:
-        return ""
-    # Return border-based approximation
-    return f"""
-        border: 1px solid {colors.shadow_light};
-        border-bottom-color: {colors.shadow_dark};
-        border-right-color: {colors.shadow_dark};
-    """
-
-
-def _neu_shadow_inset() -> str:
-    """Generate neumorphic inset (pressed) shadow CSS approximation."""
-    colors = _theme_manager.current
-    if not colors.is_neumorphic:
-        return ""
-    return f"""
-        border: 1px solid {colors.shadow_dark};
-        border-bottom-color: {colors.shadow_light};
-        border-right-color: {colors.shadow_light};
-    """
-
-
-def get_neumorphic_effect_params(inset: bool = False) -> dict:
-    """Get parameters for creating QGraphicsDropShadowEffect.
-
-    For true neumorphism, apply two effects: one light (top-left) and one dark (bottom-right).
-
-    Args:
-        inset: If True, returns params for inset (pressed) effect
-
-    Returns:
-        Dict with: blur_radius, x_offset, y_offset, color, secondary params
-    """
-    colors = _theme_manager.current
-
-    if not colors.is_neumorphic:
-        # Standard shadow for non-neumorphic themes
-        return {
-            "primary": {
-                "blur_radius": 15,
-                "x_offset": 0,
-                "y_offset": 4,
-                "color": "rgba(0, 0, 0, 0.3)",
-            },
-            "secondary": None,
-        }
-
-    if inset:
-        return {
-            "primary": {
-                "blur_radius": 8,
-                "x_offset": 3,
-                "y_offset": 3,
-                "color": colors.shadow_dark,
-            },
-            "secondary": {
-                "blur_radius": 8,
-                "x_offset": -3,
-                "y_offset": -3,
-                "color": colors.shadow_light,
-            },
-        }
-    else:
-        return {
-            "primary": {
-                "blur_radius": 12,
-                "x_offset": 6,
-                "y_offset": 6,
-                "color": colors.shadow_dark,
-            },
-            "secondary": {
-                "blur_radius": 12,
-                "x_offset": -6,
-                "y_offset": -6,
-                "color": colors.shadow_light,
-            },
-        }
 
 
 # =============================================================================
@@ -269,23 +179,3 @@ def get_content_browser_style() -> str:
         }}
     """
 
-
-COPY_BUTTON_STYLE = """
-    QPushButton {
-        background-color: transparent;
-        border: none;
-        font-size: 14px;
-    }
-    QPushButton:hover {
-        background-color: rgba(255,255,255,0.2);
-        border-radius: 4px;
-    }
-"""
-
-
-# DEPRECATED: These module-level constants are evaluated at import time.
-# They're kept for backwards compatibility but code should migrate to using
-# the function versions (get_main_window_style(), etc.) to support theme changes.
-MAIN_WINDOW_STYLE = get_main_window_style()
-SCROLL_AREA_STYLE = get_scroll_area_style()
-CONTENT_BROWSER_STYLE = get_content_browser_style()

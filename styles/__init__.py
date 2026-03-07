@@ -4,7 +4,7 @@ This package provides a single source of truth for all colors, fonts,
 and widget styles used throughout the desktop app.
 
 All exports are available directly from this package:
-    from styles import COLORS, get_theme_manager, button_style, ...
+    from styles import COLORS, get_theme_manager, get_button_style, ...
 """
 
 # Colors and theme management
@@ -20,51 +20,27 @@ from styles.colors import (
     COLORS,
 )
 
-# Base styles and neumorphism utilities
+# Base styles
 from styles.base import (
-    _neu_shadow_outset,
-    _neu_shadow_inset,
-    get_neumorphic_effect_params,
     get_main_window_style,
     get_scroll_area_style,
     get_content_browser_style,
-    COPY_BUTTON_STYLE,
-    MAIN_WINDOW_STYLE,
-    SCROLL_AREA_STYLE,
-    CONTENT_BROWSER_STYLE,
 )
 
 # Button styles
 from styles.buttons import (
-    # New unified API
     get_button_style,
     icon_button,
     action_button,
-    # Convenience functions
     get_send_button_style,
     get_cancel_button_style,
     get_attach_button_style,
-    # Legacy (deprecated)
-    button_style,
-    neu_button_raised_style,
-    neu_button_accent_style,
-    neu_button_inset_style,
-    SEND_BUTTON_STYLE,
-    CANCEL_BUTTON_STYLE,
-    ATTACH_BUTTON_STYLE,
 )
 
-# Input and card styles
+# Input styles
 from styles.inputs import (
-    input_style,
-    neu_input_inset_style,
-    neu_card_style,
-    neu_card_inset_style,
     get_modern_input_container_style,
     get_modern_input_field_style,
-    get_modern_send_button_style,
-    get_modern_attach_button_style,
-    get_modern_cancel_button_style,
 )
 
 # Message and role styles
@@ -104,7 +80,6 @@ from styles.dialogs import (
     get_panel_title_style,
     get_subsection_label_style,
     get_validation_error_style,
-    get_icon_button_style,
 )
 
 # Component styles
@@ -126,12 +101,8 @@ from styles.primitives import (
     SIDEBAR_SELECTED,
     INSET_DARK,
     INSET_LIGHT,
-    raised_bevel,
-    inset_bevel,
-    pressed_bevel,
     flat_icon_label_style,
     inset_container_style,
-    raised_button_style,
     inset_panel_style,
 )
 
@@ -147,41 +118,19 @@ __all__ = [
     "get_theme_manager",
     "COLORS",
     # Base
-    "_neu_shadow_outset",
-    "_neu_shadow_inset",
-    "get_neumorphic_effect_params",
     "get_main_window_style",
     "get_scroll_area_style",
     "get_content_browser_style",
-    "COPY_BUTTON_STYLE",
-    "MAIN_WINDOW_STYLE",
-    "SCROLL_AREA_STYLE",
-    "CONTENT_BROWSER_STYLE",
-    # Buttons (new unified API)
+    # Buttons
     "get_button_style",
     "icon_button",
     "action_button",
     "get_send_button_style",
     "get_cancel_button_style",
     "get_attach_button_style",
-    # Buttons (legacy/deprecated)
-    "button_style",
-    "neu_button_raised_style",
-    "neu_button_accent_style",
-    "neu_button_inset_style",
-    "SEND_BUTTON_STYLE",
-    "CANCEL_BUTTON_STYLE",
-    "ATTACH_BUTTON_STYLE",
     # Inputs
-    "input_style",
-    "neu_input_inset_style",
-    "neu_card_style",
-    "neu_card_inset_style",
     "get_modern_input_container_style",
     "get_modern_input_field_style",
-    "get_modern_send_button_style",
-    "get_modern_attach_button_style",
-    "get_modern_cancel_button_style",
     # Messages
     "RoleStyle",
     "get_role_style",
@@ -212,7 +161,6 @@ __all__ = [
     "get_panel_title_style",
     "get_subsection_label_style",
     "get_validation_error_style",
-    "get_icon_button_style",
     # Components
     "get_attachment_chip_style",
     "get_attachment_label_style",
@@ -228,11 +176,7 @@ __all__ = [
     "SIDEBAR_SELECTED",
     "INSET_DARK",
     "INSET_LIGHT",
-    "raised_bevel",
-    "inset_bevel",
-    "pressed_bevel",
     "flat_icon_label_style",
     "inset_container_style",
-    "raised_button_style",
     "inset_panel_style",
 ]
