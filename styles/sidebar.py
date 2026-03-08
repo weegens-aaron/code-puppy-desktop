@@ -188,6 +188,9 @@ def get_tab_widget_style() -> str:
                 border: none;
                 background-color: {SIDEBAR_MATERIAL};
             }}
+            QTabBar {{
+                background-color: {SIDEBAR_MATERIAL};
+            }}
             QTabBar::tab {{
                 background-color: #3a3038;
                 color: {colors.text_secondary};
@@ -216,6 +219,9 @@ def get_tab_widget_style() -> str:
         return f"""
             QTabWidget::pane {{
                 border: none;
+                background-color: {colors.bg_primary};
+            }}
+            QTabBar {{
                 background-color: {colors.bg_primary};
             }}
             QTabBar::tab {{

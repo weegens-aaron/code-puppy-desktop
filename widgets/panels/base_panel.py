@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from styles import (
-    COLORS, button_style, get_theme_manager, action_button,
+    COLORS, get_button_style, get_theme_manager, action_button,
     SIDEBAR_MATERIAL, SIDEBAR_HOVER, SIDEBAR_SELECTED,
 )
 
@@ -303,7 +303,7 @@ class BaseSidebarPanel(QWidget, metaclass=QWidgetABCMeta):
             else:
                 # Legacy: style dict for backwards compatibility
                 style_kwargs = btn_config.get("style", {})
-                btn.setStyleSheet(button_style(**style_kwargs))
+                btn.setStyleSheet(get_button_style(**style_kwargs))
 
             if tooltip:
                 btn.setToolTip(tooltip)

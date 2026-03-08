@@ -150,7 +150,6 @@ class CodePuppyApp(QMainWindow):
         # Tabbed chat area
         self.chat_tabs = QTabWidget()
         self.chat_tabs.setTabsClosable(False)
-        self.chat_tabs.setDocumentMode(True)
         self.chat_tabs.setStyleSheet(get_tab_widget_style())
 
         # Create chat tab

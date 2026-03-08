@@ -550,6 +550,9 @@ class SettingsDialog(QDialog):
                 border-radius: 4px;
                 background-color: {colors.bg_primary};
             }}
+            QTabBar {{
+                background-color: {colors.bg_primary};
+            }}
             QTabBar::tab {{
                 background-color: {colors.bg_secondary};
                 color: {colors.text_secondary};

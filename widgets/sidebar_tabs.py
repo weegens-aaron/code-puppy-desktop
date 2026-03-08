@@ -57,7 +57,6 @@ class SidebarTabs(QWidget):
         # Create tab widget
         self._tabs = QTabWidget()
         self._tabs.setTabPosition(QTabWidget.TabPosition.North)
-        self._tabs.setDocumentMode(True)
         self._tabs.setStyleSheet(get_tab_widget_style())
 
         # Create panels
